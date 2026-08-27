@@ -25,13 +25,20 @@ const {
 const app = express();
 const execFileAsync = promisify(execFile);
 
-// مجلد الرفع (صور/ملفات المذكرات والامتحانات)
-if (!fs.existsSync(path.join(__dirname, "uploads"))) {
-  fs.mkdirSync(path.join(__dirname, "uploads"));
+// مجلد الرفع المؤقت (صور/ملفات المذكرات والامتحانات)
+// Netlify Functions تسمح بالكتابة في /tmp فقط؛ التشغيل المحلي يحتفظ بمجلد uploads.
+const isNetlifyRuntime = Boolean(
+  process.env.NETLIFY || process.env.NETLIFY_DEV || process.env.AWS_LAMBDA_FUNCTION_NAME,
+);
+const runtimeUploadDir = isNetlifyRuntime
+  ? path.join(os.tmpdir(), "dr-mostaqbaly-uploads")
+  : path.join(__dirname, "uploads");
+if (!fs.existsSync(runtimeUploadDir)) {
+  fs.mkdirSync(runtimeUploadDir, { recursive: true });
 }
 const ALLOWED_UPLOAD_EXTENSIONS = new Set([".pdf", ".docx", ".txt", ".png", ".jpg", ".jpeg", ".webp"]);
 const upload = multer({
-  dest: path.join(__dirname, "uploads"),
+  dest: runtimeUploadDir,
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB كحد أقصى لكل ملف
   fileFilter: (req, file, callback) => {
     const ext = path.extname(file.originalname || "").toLowerCase();
@@ -104,7 +111,7 @@ app.get("/uploads/:filename", (req, res) => {
     [fileUrl],
     (err, row) => {
       if (err || !row) return res.status(404).send("الملف غير متاح");
-      return res.sendFile(path.join(__dirname, "uploads", filename), { dotfiles: "deny" });
+      return res.sendFile(path.join(runtimeUploadDir, filename), { dotfiles: "deny" });
     },
   );
 });
@@ -443,6 +450,11 @@ async function initializeDatabase() {
       expires_at TIMESTAMP,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
+    `CREATE TABLE IF NOT EXISTS otp_verifications (
+      email TEXT PRIMARY KEY,
+      expires_at TIMESTAMP NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
     `CREATE TABLE IF NOT EXISTS exam_attempts (
       id SERIAL PRIMARY KEY,
       exam_id INTEGER NOT NULL,
@@ -538,7 +550,15 @@ app.post("/api/register", authLimiter, async (req, res) => {
       .json({ success: false, message: "البريد الإلكتروني غير صحيح" });
   }
 
-  if (!verifiedOtpEmails[email] || verifiedOtpEmails[email] < Date.now()) {
+  // مصدر التحقق الدائم هو PostgreSQL؛ الذاكرة وحدها لا تكفي مع Netlify Functions.
+  const verification = await new Promise((resolve) => {
+    db.get(
+      `SELECT email FROM otp_verifications WHERE email = ? AND expires_at > ? LIMIT 1`,
+      [email, new Date()],
+      (verificationErr, row) => resolve({ verificationErr, row }),
+    );
+  });
+  if (verification.verificationErr || !verification.row) {
     delete verifiedOtpEmails[email];
     return res.status(400).json({
       success: false,
@@ -627,6 +647,7 @@ app.post("/api/register", authLimiter, async (req, res) => {
             else console.log("تم إرسال إيميل الترحيب للطالب بنجاح!");
           });
 
+          db.run(`DELETE FROM otp_verifications WHERE email = ?`, [email]);
           delete verifiedOtpEmails[email];
           const studentToken = await createStudentSession(phone);
           res.status(200).json({
@@ -1955,6 +1976,26 @@ app.post("/api/check-phone", (req, res) => {
   });
 });
 
+function persistOtpVerification(email, res) {
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  db.run(
+    `INSERT INTO otp_verifications (email, expires_at) VALUES (?, ?) ON CONFLICT (email) DO UPDATE SET expires_at = EXCLUDED.expires_at RETURNING email`,
+    [email, expiresAt],
+    (verificationErr) => {
+      if (verificationErr) {
+        console.log("تعذر حفظ تحقق البريد:", verificationErr.message);
+        return res.status(503).json({
+          success: false,
+          code: "DATABASE_UNAVAILABLE",
+          message: "تعذر حفظ التحقق حالياً، حاول مرة أخرى",
+        });
+      }
+      verifiedOtpEmails[email] = expiresAt.getTime();
+      return res.status(200).json({ success: true, message: "تم التحقق بنجاح" });
+    },
+  );
+}
+
 // إرسال رمز التحقق (OTP) إلى البريد الإلكتروني
 app.post("/api/send-otp", otpLimiter, (req, res) => {
   const email = normalizeText(req.body.email);
@@ -2047,10 +2088,7 @@ app.post("/api/verify-otp", otpLimiter, (req, res) => {
         email,
         code,
       ]);
-      verifiedOtpEmails[email] = Date.now() + 10 * 60 * 1000;
-      return res
-        .status(200)
-        .json({ success: true, message: "تم التحقق بنجاح" });
+      return persistOtpVerification(email, res);
     }
   }
 
@@ -2078,8 +2116,7 @@ app.post("/api/verify-otp", otpLimiter, (req, res) => {
         email,
         code,
       ]);
-      verifiedOtpEmails[email] = Date.now() + 10 * 60 * 1000;
-      res.status(200).json({ success: true, message: "تم التحقق بنجاح" });
+      return persistOtpVerification(email, res);
     },
   );
 });
@@ -2265,10 +2302,15 @@ app.use((err, req, res, next) => {
     .json({ success: false, message: "حدث خطأ غير متوقع في السيرفر" });
 });
 
-// تشغيل السيرفر
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(
-    `السيرفر شغال بتميز على البورت ${PORT} 🚀 http://localhost:${PORT}`,
-  );
-});
+// التشغيل المحلي فقط؛ Netlify يستورد app عبر netlify/functions/api.js
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(
+      `السيرفر شغال بتميز على البورت ${PORT} 🚀 http://localhost:${PORT}`,
+    );
+  });
+}
+
+// تصدير التطبيق لمحول Netlify Functions
+module.exports = app;
