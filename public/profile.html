@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>الملف الشخصي - دكتور مستقبلي 🩺</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="fixed-header">
+      <div class="navbar">
+        <h2 class="logo">دكتور مستقبلي 🩺</h2>
+        <div class="nav-actions">
+          <button class="icon-btn" onclick="toggleSearch()" title="بحث">
+            🔍
+          </button>
+          <button class="icon-btn" id="themeToggle" title="تغيير المظهر">
+            🌙
+          </button>
+          <button class="icon-btn" id="menuBtn" title="القائمة">
+            <svg
+              width="24"
+              height="24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M3 12h18M3 6h18M3 18h18" />
+            </svg>
+          </button>
+          <a
+            href="profile.html"
+            class="icon-btn"
+            id="profileLink"
+            title="الملف الشخصي"
+            >👤</a
+          >
+        </div>
+      </div>
+
+      <div class="search-bar" id="searchBar">
+        <input
+          type="text"
+          id="searchInput"
+          placeholder="ابحث عن مذكرة، امتحان، مادة..."
+        />
+        <button onclick="performSearch()">بحث</button>
+      </div>
+
+      <nav class="dropdown-menu" id="navLinks">
+        <a href="index.html">🏠 الرئيسية</a>
+        <a href="notes.html">📚 المواد الدراسية</a>
+        <a href="exams.html">📝 الامتحانات</a>
+        <a href="leaderboard.html">🏆 لوحة الصدارة</a>
+        <a href="profile.html" class="active">👤 الملف الشخصي</a>
+      </nav>
+    </header>
+
+    <main class="container profile-container">
+      <div class="profile-card">
+        <div class="profile-header">
+          <div class="avatar profile-avatar" id="avatarLetter">د</div>
+          <div class="user-info">
+            <p class="welcome-text" id="welcomeText">صباح الخير يا دكتور! 👋</p>
+            <h2 class="user-name" id="userName">جاري التحميل...</h2>
+            <p class="user-phone" id="userPhone">جاري التحميل...</p>
+            <span class="user-badge" id="userBadge">🏅 طالب جديد</span>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-box">
+            <span class="stat-icon">⭐</span>
+            <div class="stat-data">
+              <h3 id="userPoints">0</h3>
+              <p>مجموع النقاط</p>
+            </div>
+          </div>
+
+          <div class="stat-box">
+            <span class="stat-icon">🔥</span>
+            <div class="stat-data">
+              <h3 id="userStreak">—</h3>
+              <p>سلسلة الالتزام (قريباً)</p>
+            </div>
+          </div>
+
+          <div class="stat-box">
+            <span class="stat-icon">🎓</span>
+            <div class="stat-data">
+              <h3 id="userCertsCount">0</h3>
+              <p>الشهادات</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="progress-section level-progress-box">
+          <div class="progress-header level-info">
+            <span>الهدف للقب القادم:</span>
+            <span id="progressText">0 / 100 نقطة</span>
+          </div>
+          <div class="progress-bar progress-bar-bg">
+            <div
+              class="progress-fill progress-bar-fill"
+              id="progressBarFill"
+              style="width: 0%"
+            ></div>
+          </div>
+        </div>
+
+        <div class="badges-section">
+          <h3>🏆 الأوسمة والإنجازات</h3>
+          <div class="badges-grid">
+            <div class="badge-card locked" id="badgeExam">
+              <span class="badge-icon">🎯</span>
+              <h4>أول خطوة</h4>
+              <p>حل أول امتحان بنجاح</p>
+            </div>
+            <div class="badge-card locked" id="badgePoints">
+              <span class="badge-icon">⚡</span>
+              <h4>صاحب الشغف</h4>
+              <p>جمع 100 نقطة في المنصة</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="certificates-section" id="certificatesSection">
+          <h3>📜 شهاداتي</h3>
+          <div class="certificates-grid" id="certificatesGrid">
+            <p style="color: gray; font-size: 13px; padding: 10px">
+              لا توجد شهادات بعد. اجمع النقاط واحصل على شهادتك الأولى! 🚀
+            </p>
+          </div>
+        </div>
+
+        <div class="profile-actions">
+          <button
+            class="btn btn-secondary"
+            onclick="window.location.href = 'index.html'"
+          >
+            🏠 العودة للرئيسية
+          </button>
+          <button class="btn btn-danger" id="logoutBtn">🚪 تسجيل الخروج</button>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      // تحميل شهادات الطالب من السيرفر عبر جلسة الطالب فقط
+      async function loadCertificates() {
+        const token = localStorage.getItem("studentAuthToken");
+        const grid = document.getElementById("certificatesGrid");
+        if (!token || !grid) return;
+
+        try {
+          const res = await fetch("/api/certificates", {
+            headers: { "x-student-token": token },
+          });
+          const data = await res.json();
+          if (data.success && data.certificates.length > 0) {
+            grid.innerHTML = "";
+            data.certificates.forEach((cert) => {
+              const card = document.createElement("div");
+              card.className = "certificate-card";
+              card.innerHTML = `
+                <div style="text-align: center; padding: 15px;">
+                  <div style="font-size: 40px;">🏆</div>
+                  <h4 style="margin: 8px 0 4px;">${escapeHtml(cert.rank_title || "شهادة تقدير")}</h4>
+                  <p style="font-size: 13px; color: gray; margin: 4px 0;">
+                    ${escapeHtml(cert.name)} • ${escapeHtml(cert.points)} نقطة
+                  </p>
+                  <p style="font-size: 12px; color: gray; margin: 4px 0;">
+                    رقم الشهادة: ${escapeHtml(cert.cert_number || "-")}
+                  </p>
+                  <p style="font-size: 12px; color: gray; margin: 4px 0;">
+                    ${new Date(cert.issued_at).toLocaleDateString("ar-EG")}
+                  </p>
+                  <button class="btn btn-secondary" style="margin-top: 10px;"
+                    onclick="window.open('/api/certificate-pdf/${cert.id}', '_blank')">
+                    📥 تحميل PDF
+                  </button>
+                </div>
+              `;
+              grid.appendChild(card);
+            });
+          }
+        } catch (e) {
+          console.log("تعذر تحميل الشهادات:", e);
+        }
+      }
+      // تحميل الشهادات عند فتح الصفحة
+      loadCertificates();
+    </script>
+
+    <script src="script.js"></script>
+  </body>
+</html>
