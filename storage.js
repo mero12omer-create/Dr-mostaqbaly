@@ -5,6 +5,14 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+// Netlify قد يشغّل Function على Node بدون WebSocket عالمي؛ ws يوفّر توافقًا احتياطيًا.
+if (typeof globalThis.WebSocket === "undefined") {
+  try {
+    globalThis.WebSocket = require("ws");
+  } catch (error) {
+    console.warn("⚠️ WebSocket fallback غير متاح؛ سيتم تعطيله إن لم تحتجه Supabase.");
+  }
+}
 const { createClient } = require("@supabase/supabase-js");
 
 const BUCKET = process.env.SUPABASE_BUCKET || "notes-files";

@@ -27,10 +27,13 @@ const execFileAsync = promisify(execFile);
 
 // مجلد الرفع المؤقت (صور/ملفات المذكرات والامتحانات)
 // Netlify Functions تسمح بالكتابة في /tmp فقط؛ التشغيل المحلي يحتفظ بمجلد uploads.
-const isNetlifyRuntime = Boolean(
-  process.env.NETLIFY || process.env.NETLIFY_DEV || process.env.AWS_LAMBDA_FUNCTION_NAME,
+const isServerlessRuntime = Boolean(
+  process.env.NETLIFY ||
+    process.env.NETLIFY_DEV ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.VERCEL,
 );
-const runtimeUploadDir = isNetlifyRuntime
+const runtimeUploadDir = isServerlessRuntime
   ? path.join(os.tmpdir(), "dr-mostaqbaly-uploads")
   : path.join(__dirname, "uploads");
 if (!fs.existsSync(runtimeUploadDir)) {
