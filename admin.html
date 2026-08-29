@@ -1,6 +1,15 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
   <head>
+    <script>
+      window.onerror = function (msg, url, line, col, error) {
+        alert("⚠️ خطأ JS:\n" + msg + "\nسطر: " + line + ":" + col + "\nملف: " + url);
+        return false;
+      };
+      window.addEventListener("unhandledrejection", function (event) {
+        alert("⚠️ خطأ في طلب غير متزامن (Promise):\n" + (event.reason && event.reason.message ? event.reason.message : event.reason));
+      });
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>لوحة التحكم الشاملة - دكتور مستقبلي 🩺</title>
