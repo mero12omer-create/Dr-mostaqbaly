@@ -41,6 +41,19 @@
         } else {
           showBanner("❌ زرار الدخول (adminLoginBtn) مش موجود في الصفحة");
         }
+        var tabMap = {
+          tabBtnExams: "examsTab",
+          tabBtnNotes: "notesTab",
+          tabBtnStudents: "studentsTab",
+        };
+        Object.keys(tabMap).forEach(function (btnId) {
+          var b = document.getElementById(btnId);
+          if (b) {
+            b.addEventListener("click", function () {
+              showTab(tabMap[btnId], b);
+            });
+          }
+        });
       });
     </script>
     <meta charset="UTF-8" />
@@ -286,13 +299,13 @@
       </div>
 
       <div class="tabs">
-        <button class="tab-btn active" onclick="showTab('examsTab', this)">
+        <button id="tabBtnExams" class="tab-btn active" onclick="showTab('examsTab', this)">
           📝 إدارة الامتحانات
         </button>
-        <button class="tab-btn" onclick="showTab('notesTab', this)">
+        <button id="tabBtnNotes" class="tab-btn" onclick="showTab('notesTab', this)">
           📚 إدارة المذكرات (PDF)
         </button>
-        <button class="tab-btn" onclick="showTab('studentsTab', this)">
+        <button id="tabBtnStudents" class="tab-btn" onclick="showTab('studentsTab', this)">
           👨‍🎓 إدارة الطلاب
         </button>
       </div>
@@ -674,14 +687,26 @@
       }
 
       function showTab(id, button) {
-        document
-          .querySelectorAll(".tab-content")
-          .forEach((tab) => (tab.style.display = "none"));
-        document
-          .querySelectorAll(".tab-btn")
-          .forEach((b) => b.classList.remove("active"));
-        document.getElementById(id).style.display = "block";
-        button?.classList.add("active");
+        try {
+          document
+            .querySelectorAll(".tab-content")
+            .forEach((tab) => (tab.style.display = "none"));
+          document
+            .querySelectorAll(".tab-btn")
+            .forEach((b) => b.classList.remove("active"));
+          const target = document.getElementById(id);
+          if (!target) {
+            showBanner("❌ عنصر التاب '" + id + "' مش موجود في الصفحة");
+            return;
+          }
+          target.style.display = "block";
+          button?.classList.add("active");
+          if (id === "studentsTab") {
+            loadStudents();
+          }
+        } catch (e) {
+          showBanner("❌ خطأ أثناء تبديل التاب: " + (e && e.message ? e.message : e));
+        }
       }
 
       function initSelectors() {
