@@ -1,6 +1,19 @@
 {
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index" },
-    { "source": "/uploads/(.*)", "destination": "/api/index" }
+    { "source": "/uploads/(.*)", "destination": "/api/index" },
+    { "source": "/", "destination": "/public/index.html" },
+    { "source": "/index.html", "destination": "/public/index.html" },
+    { "source": "/chat.html", "destination": "/public/chat.html" },
+    { "source": "/exams.html", "destination": "/public/exams.html" },
+    { "source": "/leaderboard.html", "destination": "/public/leaderboard.html" },
+    { "source": "/login.html", "destination": "/public/login.html" },
+    { "source": "/notes.html", "destination": "/public/notes.html" },
+    { "source": "/profile.html", "destination": "/public/profile.html" },
+    { "source": "/signup.html", "destination": "/public/signup.html" },
+    { "source": "/admin.html", "destination": "/public/admin.html" },
+    { "source": "/script.js", "destination": "/public/script.js" },
+    { "source": "/subjects.js", "destination": "/public/subjects.js" },
+    { "source": "/style.css", "destination": "/public/style.css" }
   ]
 }
