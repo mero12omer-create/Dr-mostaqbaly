@@ -2,12 +2,45 @@
 <html lang="ar" dir="rtl">
   <head>
     <script>
+      function showBanner(text) {
+        var el = document.getElementById("statusBanner");
+        if (!el) {
+          // العنصر لسه متعملش (السكريبت ده بيشتغل الأول)، خزّن الرسالة وحطها بعد تحميل الصفحة
+          document.addEventListener("DOMContentLoaded", function () {
+            showBanner(text);
+          });
+          return;
+        }
+        el.style.display = "block";
+        el.textContent = text;
+      }
       window.onerror = function (msg, url, line, col, error) {
-        alert("⚠️ خطأ JS:\n" + msg + "\nسطر: " + line + ":" + col + "\nملف: " + url);
+        showBanner("⚠️ خطأ JS: " + msg + " — سطر " + line + ":" + col + " — ملف: " + url);
         return false;
       };
       window.addEventListener("unhandledrejection", function (event) {
-        alert("⚠️ خطأ في طلب غير متزامن (Promise):\n" + (event.reason && event.reason.message ? event.reason.message : event.reason));
+        showBanner("⚠️ خطأ Promise: " + (event.reason && event.reason.message ? event.reason.message : event.reason));
+      });
+      showBanner("✅ الصفحة والسكريبتات اتحمّلت لحد هنا (نسخة V3)");
+      setTimeout(function () {
+        var el = document.getElementById("statusBanner");
+        if (el && el.textContent.indexOf("✅") === 0) {
+          el.style.display = "none";
+        }
+      }, 4000);
+      document.addEventListener("DOMContentLoaded", function () {
+        var loginBtn = document.getElementById("adminLoginBtn");
+        if (loginBtn) {
+          loginBtn.addEventListener("click", function () {
+            if (typeof checkAdminPass === "function") {
+              checkAdminPass();
+            } else {
+              showBanner("❌ دالة checkAdminPass مش موجودة - فيه مشكلة في تحميل الكود");
+            }
+          });
+        } else {
+          showBanner("❌ زرار الدخول (adminLoginBtn) مش موجود في الصفحة");
+        }
       });
     </script>
     <meta charset="UTF-8" />
@@ -215,14 +248,15 @@
     </style>
   </head>
   <body>
+    <div id="statusBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; background:#dc2626; color:#fff; padding:14px; font-size:15px; text-align:center; direction:rtl; word-break:break-word;"></div>
     <div class="login-overlay" id="loginOverlay">
       <div class="login-box">
         <h3>🔒 لوحة تحكم الأدمن</h3>
         <div class="form-group">
           <input type="password" id="passInput" placeholder="كلمة السر" />
         </div>
-        <button class="btn-main" style="width: 100%" onclick="checkAdminPass()">
-          دخول 🔑
+        <button id="adminLoginBtn" class="btn-main" style="width: 100%" onclick="checkAdminPass()">
+          دخول 🔑 (V2)
         </button>
       </div>
     </div>
@@ -603,6 +637,7 @@
       let adminToken = localStorage.getItem("adminToken") || "";
 
       async function checkAdminPass() {
+        showBanner("👆 تم الضغط على الزرار، جاري إرسال الطلب...");
         const pass = document.getElementById("passInput").value;
         const btn = document.querySelector(".login-box .btn-main");
         if (btn) {
@@ -615,20 +650,22 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ password: pass }),
           });
+          showBanner("📡 وصل رد من السيرفر، كود: " + res.status);
           const data = await res.json();
           if (data.success && data.token) {
             adminToken = data.token;
             localStorage.setItem("adminToken", adminToken);
             document.getElementById("loginOverlay").style.display = "none";
             document.getElementById("adminContent").style.display = "block";
+            document.getElementById("statusBanner").style.display = "none";
             initSelectors();
             loadNotes();
             loadStudents();
           } else {
-            alert(data.message || "كلمة السر غير صحيحة!");
+            showBanner("❌ فشل الدخول: " + (data.message || "كلمة السر غير صحيحة!"));
           }
         } catch (err) {
-          alert("تعذر الاتصال بالخادم. تأكد أن السيرفر يعمل.");
+          showBanner("❌ تعذر الاتصال بالخادم: " + (err && err.message ? err.message : err));
         }
         if (btn) {
           btn.disabled = false;
