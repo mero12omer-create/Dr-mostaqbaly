@@ -1,6 +1,24 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
   <head>
+    <script>
+      function showBanner(text) {
+        var el = document.getElementById("statusBanner");
+        if (!el) {
+          document.addEventListener("DOMContentLoaded", function () { showBanner(text); });
+          return;
+        }
+        el.style.display = "block";
+        el.textContent = text;
+      }
+      window.onerror = function (msg, url, line, col, error) {
+        showBanner("⚠️ خطأ JS: " + msg + " — سطر " + line + ":" + col);
+        return false;
+      };
+      window.addEventListener("unhandledrejection", function (event) {
+        showBanner("⚠️ خطأ Promise: " + (event.reason && event.reason.message ? event.reason.message : event.reason));
+      });
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>بنك المذكرات - دكتور مستقبلي 🩺</title>
@@ -88,6 +106,7 @@
     </style>
   </head>
   <body>
+    <div id="statusBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; background:#dc2626; color:#fff; padding:14px; font-size:15px; text-align:center; direction:rtl; word-break:break-word;"></div>
     <header class="fixed-header">
       <div class="navbar">
         <h2 class="logo">دكتور مستقبلي 🩺</h2>
@@ -163,8 +182,8 @@
         if (!groupBar || !subjectBar) return;
 
         groupBar.innerHTML = [
-          `<button class="filter-btn ${currentGroup === "all" ? "active" : ""}" data-key="all" onclick="filterNotesGroup('all', this)">كل المجموعات ✨</button>`,
-          ...groups.map((group) => `<button class="filter-btn ${currentGroup === group.key ? "active" : ""}" data-key="${group.key}" onclick="filterNotesGroup('${group.key}', this)">${escapeHtml(group.label)}</button>`),
+          `<button class="filter-btn ${currentGroup === "all" ? "active" : ""}" data-key="all" data-action="group">كل المجموعات ✨</button>`,
+          ...groups.map((group) => `<button class="filter-btn ${currentGroup === group.key ? "active" : ""}" data-key="${group.key}" data-action="group">${escapeHtml(group.label)}</button>`),
         ].join("");
 
         const selectedGroup = currentGroup === "all"
@@ -174,8 +193,8 @@
           ? selectedGroup.subjects
           : groups.flatMap((group) => group.subjects);
         subjectBar.innerHTML = [
-          `<button class="filter-btn ${currentCategory === "all" ? "active" : ""}" data-key="all" onclick="filterNotes('all', this)">كل المواد</button>`,
-          ...subjects.map((subject) => `<button class="filter-btn ${currentCategory === subject.key ? "active" : ""}" data-key="${subject.key}" onclick="filterNotes('${subject.key}', this)">${escapeHtml(subject.label)}</button>`),
+          `<button class="filter-btn ${currentCategory === "all" ? "active" : ""}" data-key="all" data-action="subject">كل المواد</button>`,
+          ...subjects.map((subject) => `<button class="filter-btn ${currentCategory === subject.key ? "active" : ""}" data-key="${subject.key}" data-action="subject">${escapeHtml(subject.label)}</button>`),
         ].join("");
       }
 
@@ -285,6 +304,18 @@
         if (label) label.textContent = currentBranch;
         const branchSelect = document.getElementById("notesBranchSelect");
         branchSelect?.addEventListener("change", (event) => changeNotesBranch(event.target.value));
+
+        // تفويض الأحداث (event delegation) لأزرار المجموعات/المواد
+        // اللي بتتولد ديناميكيًا - أضمن من onclick المكتوب جوه innerHTML
+        document.getElementById("groupFilterBar")?.addEventListener("click", (event) => {
+          const btn = event.target.closest("button[data-action='group']");
+          if (btn) filterNotesGroup(btn.dataset.key, btn);
+        });
+        document.getElementById("subjectFilterBar")?.addEventListener("click", (event) => {
+          const btn = event.target.closest("button[data-action='subject']");
+          if (btn) filterNotes(btn.dataset.key, btn);
+        });
+
         renderFilterControls();
         renderNotes();
       });

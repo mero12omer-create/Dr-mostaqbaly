@@ -81,6 +81,16 @@ document.addEventListener("DOMContentLoaded", function () {
   // ------------------------------------------
   const signupForm = document.getElementById("signupForm");
   if (signupForm) {
+    // ربط احتياطي إضافي لزرار إرسال الرمز (بالإضافة إلى onclick في الصفحة)
+    const sendOtpBtnEl = document.getElementById("sendOtpBtn");
+    if (sendOtpBtnEl) {
+      sendOtpBtnEl.addEventListener("click", function (e) {
+        e.preventDefault();
+        if (typeof sendOtp === "function") {
+          sendOtp();
+        }
+      });
+    }
     signupForm.addEventListener("submit", async function (e) {
       // 🛑 يمنع المتصفح من عمل ريفرش ومسح البيانات
       e.preventDefault();

@@ -54,6 +54,57 @@
             });
           }
         });
+        var genBtn = document.getElementById("generateExamBtn");
+        if (genBtn) {
+          genBtn.addEventListener("click", function () {
+            if (typeof generateExamQuestions === "function") {
+              generateExamQuestions();
+            } else {
+              showBanner("❌ دالة generateExamQuestions مش موجودة");
+            }
+          });
+        }
+        var searchBtn = document.getElementById("studentSearchBtn");
+        if (searchBtn) {
+          searchBtn.addEventListener("click", function () {
+            if (typeof searchStudent === "function") {
+              searchStudent();
+            } else {
+              showBanner("❌ دالة searchStudent مش موجودة");
+            }
+          });
+        }
+        var refreshBtn = document.getElementById("refreshStudentsBtn");
+        if (refreshBtn) {
+          refreshBtn.addEventListener("click", function () {
+            if (typeof loadStudents === "function") {
+              loadStudents();
+            } else {
+              showBanner("❌ دالة loadStudents مش موجودة");
+            }
+          });
+        }
+        var idFnMap = {
+          publishExamBtn: "publishExamQuestions",
+          addExamContentBtn: "addExamContent",
+          generateAIDraftBtn: "generateAIDraft",
+          approveDraftBtn: "approveDraft",
+          refreshNotesBtn: "loadNotes",
+          resetAllBtn: "resetAll",
+        };
+        Object.keys(idFnMap).forEach(function (btnId) {
+          var el = document.getElementById(btnId);
+          var fnName = idFnMap[btnId];
+          if (el) {
+            el.addEventListener("click", function () {
+              if (typeof window[fnName] === "function") {
+                window[fnName]();
+              } else {
+                showBanner("❌ دالة " + fnName + " مش موجودة");
+              }
+            });
+          }
+        });
       });
     </script>
     <meta charset="UTF-8" />
@@ -268,7 +319,7 @@
         <div class="form-group">
           <input type="password" id="passInput" placeholder="كلمة السر" />
         </div>
-        <button id="adminLoginBtn" class="btn-main" style="width: 100%" onclick="checkAdminPass()">
+        <button id="adminLoginBtn" class="btn-main" style="width: 100%">
           دخول 🔑 (V2)
         </button>
       </div>
@@ -299,13 +350,13 @@
       </div>
 
       <div class="tabs">
-        <button id="tabBtnExams" class="tab-btn active" onclick="showTab('examsTab', this)">
+        <button id="tabBtnExams" class="tab-btn active">
           📝 إدارة الامتحانات
         </button>
-        <button id="tabBtnNotes" class="tab-btn" onclick="showTab('notesTab', this)">
+        <button id="tabBtnNotes" class="tab-btn">
           📚 إدارة المذكرات (PDF)
         </button>
-        <button id="tabBtnStudents" class="tab-btn" onclick="showTab('studentsTab', this)">
+        <button id="tabBtnStudents" class="tab-btn">
           👨‍🎓 إدارة الطلاب
         </button>
       </div>
@@ -347,7 +398,7 @@
               multiple
             />
           </div>
-          <button class="btn-main" onclick="generateExamQuestions()">
+          <button id="generateExamBtn" class="btn-main">
             استخراج الأسئلة ✨
           </button>
           <div
@@ -373,9 +424,9 @@
               style="display: grid; gap: 14px"
             ></div>
             <button
+              id="publishExamBtn"
               class="btn-main"
               style="margin-top: 12px"
-              onclick="publishExamQuestions()"
             >
               🚀 نشر الأسئلة المعتمدة
             </button>
@@ -431,7 +482,7 @@
             <label>التوضيح (الشرح):</label
             ><textarea id="qExp" rows="2"></textarea>
           </div>
-          <button class="btn-main" onclick="addExamContent()">
+          <button id="addExamContentBtn" class="btn-main">
             حفظ الدرس والسؤال 💾
           </button>
         </div>
@@ -484,7 +535,7 @@
                   <label>حجم الملف (اختياري):</label>
                   <input type="text" id="noteSize" placeholder="2.5 MB" />
                 </div>
-                <button class="btn-main" onclick="generateAIDraft()">
+                <button id="generateAIDraftBtn" class="btn-main">
                   استخراج المحتوى وإنشاء مذكرة ✨
                 </button>
                 <p style="font-size: 12px; color: gray; margin-top: 8px">
@@ -530,15 +581,15 @@
                       نهاية المذكرة.
                     </p>
                     <button
+                      id="approveDraftBtn"
                       class="btn-main"
-                      onclick="approveDraft()"
                       style="margin-top: 8px"
                     >
                       اعتماد المذكرة ✅
                     </button>
                     <button
+                      id="refreshNotesBtn"
                       class="btn-outline"
-                      onclick="loadNotes()"
                       style="margin-top: 8px"
                     >
                       تحديث القائمة
@@ -577,7 +628,7 @@
                 placeholder="01xxxxxxxxx"
                 style="flex: 1"
               />
-              <button class="btn-main" onclick="searchStudent()">بحث 🔍</button>
+              <button id="studentSearchBtn" class="btn-main">بحث 🔍</button>
             </div>
           </div>
 
@@ -585,7 +636,7 @@
           <hr style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
           <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
             <h4>دليل الطلاب</h4>
-            <button class="btn-outline" type="button" onclick="loadStudents()">تحديث القائمة</button>
+            <button id="refreshStudentsBtn" class="btn-outline" type="button">تحديث القائمة</button>
           </div>
           <div class="admin-filter-row" style="margin-top:12px;">
             <select id="studentsBranchFilter" class="admin-filter-select">
@@ -604,9 +655,9 @@
       </div>
 
       <button
+        id="resetAllBtn"
         class="btn-outline"
         style="width: 100%; color: red; border-color: red"
-        onclick="resetAll()"
       >
         ⚠️ إعادة تعيين كل البيانات (حذف الكل)
       </button>

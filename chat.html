@@ -2,12 +2,21 @@
 <html lang="ar" dir="rtl">
   <head>
     <script>
+      function showBanner(text) {
+        var el = document.getElementById("statusBanner");
+        if (!el) {
+          document.addEventListener("DOMContentLoaded", function () { showBanner(text); });
+          return;
+        }
+        el.style.display = "block";
+        el.textContent = text;
+      }
       window.onerror = function (msg, url, line, col, error) {
-        alert("⚠️ خطأ JS:\n" + msg + "\nسطر: " + line + ":" + col + "\nملف: " + url);
+        showBanner("⚠️ خطأ JS: " + msg + " — سطر " + line + ":" + col);
         return false;
       };
       window.addEventListener("unhandledrejection", function (event) {
-        alert("⚠️ خطأ في طلب غير متزامن (Promise):\n" + (event.reason && event.reason.message ? event.reason.message : event.reason));
+        showBanner("⚠️ خطأ Promise: " + (event.reason && event.reason.message ? event.reason.message : event.reason));
       });
     </script>
     <meta charset="UTF-8" />
@@ -16,6 +25,7 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
+    <div id="statusBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; background:#dc2626; color:#fff; padding:14px; font-size:15px; text-align:center; direction:rtl; word-break:break-word;"></div>
     <header class="fixed-header">
       <div class="navbar">
         <h2 class="logo">دكتور مستقبلي 🩺</h2>
@@ -54,19 +64,19 @@
       </div>
 
       <div class="chat-quick-actions" id="chatQuickActions">
-        <button class="quick-action-btn" onclick="quickAction('اشرح لي درس')">
+        <button class="quick-action-btn" data-qa="اشرح لي درس">
           📖 اشرح الدرس
         </button>
-        <button class="quick-action-btn" onclick="quickAction('لخص لي درس')">
+        <button class="quick-action-btn" data-qa="لخص لي درس">
           ✂️ لخص الدرس
         </button>
         <button
           class="quick-action-btn"
-          onclick="quickAction('اعمل لي امتحان')"
+          data-qa="اعمل لي امتحان"
         >
           📝 اعمل امتحان
         </button>
-        <button class="quick-action-btn" onclick="quickAction('اسأل سؤال')">
+        <button class="quick-action-btn" data-qa="اسأل سؤال">
           ❓ اسأل سؤال
         </button>
       </div>
@@ -84,5 +94,18 @@
     </main>
 
     <script src="script.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll(".quick-action-btn[data-qa]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            if (typeof quickAction === "function") {
+              quickAction(btn.getAttribute("data-qa"));
+            } else {
+              showBanner("❌ دالة quickAction مش موجودة");
+            }
+          });
+        });
+      });
+    </script>
   </body>
 </html>
