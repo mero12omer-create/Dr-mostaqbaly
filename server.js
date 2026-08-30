@@ -1224,6 +1224,53 @@ async function extractPdfTextWithOCR(filePath) {
   }
 }
 
+// استخراج النص من صورة باستخدام موديل ذكاء اصطناعي يدعم الصور (أسرع وأدق
+// وأكثر ثباتاً على السيرفرات اللحظية "serverless" من Tesseract، وده أضمن حل
+// طالما عندنا AI_API_KEY مضبوط أصلاً لباقي الميزات).
+async function extractTextFromImageWithAI(filePath) {
+  const apiKey = normalizeText(process.env.AI_API_KEY || process.env.OPENAI_API_KEY);
+  const aiBase = normalizeText(process.env.OPENAI_API_BASE || "https://api.openai.com/v1").replace(/\/$/, "");
+  const aiUrl = normalizeText(process.env.AI_API_URL || (apiKey ? `${aiBase}/chat/completions` : ""));
+  if (!apiKey || !aiUrl) return null;
+
+  try {
+    const imageBuffer = await fs.promises.readFile(filePath);
+    const base64Image = imageBuffer.toString("base64");
+    const ext = path.extname(filePath).toLowerCase().replace(".", "") || "jpeg";
+    const mimeType = ext === "jpg" ? "jpeg" : ext;
+
+    const payload = {
+      // موديل مخصص لقراءة الصور (Vision) - منفصل عن AI_MODEL العادي
+      // النصي لأن مش كل الموديلات بتدعم صور
+      model: process.env.AI_VISION_MODEL || "qwen/qwen3.6-27b",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "استخرج كل النص المكتوب في هذه الصورة بالضبط كما هو، بدون أي تعليق أو شرح إضافي منك. لو فيه أسئلة اختيار من متعدد، حافظ على ترقيم الأسئلة والاختيارات كما هي.",
+            },
+            {
+              type: "image_url",
+              image_url: { url: `data:image/${mimeType};base64,${base64Image}` },
+            },
+          ],
+        },
+      ],
+      temperature: 0.1,
+    };
+
+    const data = await callAICompletion(aiUrl, apiKey, payload);
+    if (!data) return null;
+    const text = data.choices?.[0]?.message?.content || "";
+    return normalizeText(text) ? text : null;
+  } catch (err) {
+    console.log("تعذر استخراج النص من الصورة بالذكاء الاصطناعي:", err.message);
+    return null;
+  }
+}
+
 async function extractTextFromFile(filePath, originalName) {
   const ext = path.extname(originalName || "").toLowerCase();
   if (ext === ".txt") {
@@ -1239,6 +1286,10 @@ async function extractTextFromFile(filePath, originalName) {
     return extractedText.trim() ? extractedText : extractPdfTextWithOCR(filePath);
   }
   if ([".png", ".jpg", ".jpeg", ".webp"].includes(ext)) {
+    // المحاولة الأولى: قراءة الصورة بالذكاء الاصطناعي (أسرع وأثبت في السيرفرات اللحظية)
+    const aiText = await extractTextFromImageWithAI(filePath);
+    if (aiText && aiText.trim()) return aiText;
+    // احتياطي: لو الذكاء الاصطناعي مش متاح أو فشل، نرجع لـ Tesseract التقليدية
     const { data } = await Tesseract.recognize(filePath, "ara+eng");
     return data?.text || "";
   }
