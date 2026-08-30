@@ -492,19 +492,26 @@ async function initializeDatabase() {
   await db.runAsync(`DELETE FROM otp_codes WHERE expires_at < ?`, [new Date()]);
 }
 
-const databaseReady = initializeDatabase().catch((err) => {
-  console.error("خطأ في تهيئة قاعدة البيانات:", err.message);
-  throw err;
-});
+const databaseReady = initializeDatabase()
+  .then(() => true)
+  .catch((err) => {
+    // لا نوقف خادم الواجهة بالكامل إذا كانت إعدادات Supabase ناقصة أثناء التطوير.
+    // طلبات API ستتلقى 503 واضحاً من middleware أدناه إلى أن تُضبط قاعدة البيانات.
+    console.error("خطأ في تهيئة قاعدة البيانات:", err.message);
+    return false;
+  });
 
 // لا نستقبل طلبات API قبل اكتمال إنشاء جداول Supabase.
 app.use("/api", async (req, res, next) => {
-  try {
-    await databaseReady;
-    next();
-  } catch {
-    res.status(503).json({ success: false, code: "DATABASE_UNAVAILABLE", message: "قاعدة البيانات غير متاحة حالياً" });
+  const isReady = await databaseReady;
+  if (!isReady) {
+    return res.status(503).json({
+      success: false,
+      code: "DATABASE_UNAVAILABLE",
+      message: "قاعدة البيانات غير متاحة حالياً. اضبط DATABASE_URL ثم أعد تشغيل الخادم.",
+    });
   }
+  return next();
 });
 
 // تخزين رموز التحقق (OTP) مؤقتاً في الذاكرة (إلى جانب قاعدة البيانات)
