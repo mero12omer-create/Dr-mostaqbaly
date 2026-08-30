@@ -524,11 +524,12 @@
                     />
                   </div>
                   <div class="form-group">
-                    <label>رفع المصدر (PDF / DOCX / TXT / صورة):</label>
+                    <label>رفع المصدر (PDF / DOCX / TXT / صورة) - يمكن اختيار أكثر من ملف:</label>
                   <input
                     type="file"
                     id="noteSourceFile"
                     accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.webp"
+                    multiple
                   />
                 </div>
                 <div class="form-group">
@@ -1244,8 +1245,8 @@
 
         if (!title) return alert("أدخل عنوان المذكرة أولًا");
         if (!ownerName) return alert("أدخل اسم صاحب المذكرة أولًا");
-        if (!fileInput || !fileInput.files || !fileInput.files[0]) {
-          return alert("يرجى رفع ملف مصدر أولًا");
+        if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+          return alert("يرجى رفع ملف مصدر واحد على الأقل");
         }
 
         const formData = new FormData();
@@ -1256,8 +1257,13 @@
         formData.append("ownerName", ownerName);
         formData.append("size", size);
         formData.append("sourceType", "ملف مرفوع");
-        formData.append("sourceName", fileInput.files[0].name);
-        formData.append("sourceFile", fileInput.files[0]);
+        formData.append(
+          "sourceName",
+          Array.from(fileInput.files).map((f) => f.name).join("، "),
+        );
+        Array.from(fileInput.files).forEach((f) =>
+          formData.append("sourceFiles", f),
+        );
 
         if (draftOutput) {
           draftOutput.textContent = "جاري استخراج المحتوى وإعداد المسودة...";
@@ -1289,6 +1295,7 @@
           alert("تم إنشاء المسودة بنجاح، وها هي جاهزة للمراجعة والاعتماد");
           loadNotes();
         } catch (err) {
+          showBanner("❌ فشل إنشاء المسودة: " + (err && err.message ? err.message : err));
           alert("تعذر إنشاء المسودة بسبب مشكلة في السيرفر");
         }
       }

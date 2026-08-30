@@ -1249,16 +1249,25 @@ async function extractTextFromImageWithAI(filePath) {
           content: [
             {
               type: "text",
-              text: "استخرج كل النص المكتوب في هذه الصورة بالضبط كما هو، بدون أي تعليق أو شرح إضافي منك. لو فيه أسئلة اختيار من متعدد، حافظ على ترقيم الأسئلة والاختيارات كما هي.",
+              text:
+                "أنت أداة نسخ نصوص (OCR) دقيقة، لست مساعداً يجيب على الأسئلة. " +
+                "انسخ فقط كل نص مكتوب في الصورة بالضبط كما هو مكتوب، حرفاً بحرف، من أول سطر لآخر سطر في الصورة، بدون أي تلخيص أو حذف أو إعادة صياغة. " +
+                "حافظ على ترقيم كل سؤال ورموز الاختيارات (أ ب ج د) كما هي بالضبط. " +
+                "ممنوع منعاً باتاً اختراع أي نص غير موجود فعلياً في الصورة. لو جزء من الصورة غير واضح أو لا يمكن قراءته، اكتب [غير واضح] في مكانه ولا تخمّن. " +
+                "لا تضف أي مقدمة أو تعليق أو ملخص، ابدأ مباشرة بنسخ النص.",
             },
             {
               type: "image_url",
-              image_url: { url: `data:image/${mimeType};base64,${base64Image}` },
+              image_url: {
+                url: `data:image/${mimeType};base64,${base64Image}`,
+                detail: "high",
+              },
             },
           ],
         },
       ],
-      temperature: 0.1,
+      temperature: 0,
+      max_tokens: 4000,
     };
 
     const data = await callAICompletion(aiUrl, apiKey, payload);
@@ -1320,7 +1329,7 @@ app.post("/api/notes", requireAdmin, (req, res) => {
 app.post(
   "/api/admin/notes/generate",
   requireAdmin,
-  upload.single("sourceFile"),
+  upload.array("sourceFiles", 10),
   async (req, res) => {
     try {
       const title = normalizeText(req.body.title || "مذكرة جديدة");
@@ -1334,7 +1343,9 @@ app.post(
       const subjectGroup = getSubjectGroup(subjectKey, branch);
       const sourceType = normalizeText(req.body.sourceType || "مرفوع");
       const sourceName = normalizeText(
-        req.body.sourceName || req.file?.originalname || "مصدر غير محدد",
+        req.body.sourceName ||
+          (req.files && req.files[0]?.originalname) ||
+          "مصدر غير محدد",
       );
       const ownerName = normalizeText(req.body.ownerName || "");
 
@@ -1342,26 +1353,30 @@ app.post(
         return res.status(400).json({ success: false, message: "اسم صاحب المذكرة مطلوب" });
       }
 
-      if (!req.file) {
+      if (!req.files || req.files.length === 0) {
         return res
           .status(400)
-          .json({ success: false, message: "يرجى رفع ملف مصدر أولاً" });
+          .json({ success: false, message: "يرجى رفع ملف مصدر واحد على الأقل" });
       }
 
-      const filePath = req.file.path;
-      const extractedText = await extractTextFromFile(
-        filePath,
-        req.file.originalname || sourceName,
-      );
-      const cleanedText = String(extractedText || "")
-        .replace(/\s+/g, " ")
-        .trim();
+      // استخراج النص من كل الملفات المرفوعة ودمجها في نص واحد
+      let combinedText = "";
+      for (const file of req.files) {
+        try {
+          const text = await extractTextFromFile(file.path, file.originalname);
+          combinedText += "\n" + (text || "");
+        } catch (e) {
+          console.log("تعذر استخراج نص من ملف:", file.originalname, e);
+        }
+      }
+      const cleanedText = combinedText.replace(/\s+/g, " ").trim();
 
       if (!cleanedText) {
+        req.files.forEach((f) => fs.unlink(f.path, () => {}));
         return res.status(400).json({
           success: false,
           message:
-            "تعذر استخراج النص من الملف المرفوع، يرجى رفع ملف واضح أو نص مباشر",
+            "تعذر استخراج النص من الملفات المرفوعة، يرجى رفع ملفات واضحة أو نص مباشر",
         });
       }
 
@@ -1384,12 +1399,16 @@ app.post(
       draft.ownerName = ownerName;
       draft.aiGenerated = Boolean(draft.aiGenerated);
 
-      // رفع الملف بشكل دائم على Supabase Storage (بدل التخزين المحلي اللي بيتمسح)
+      // رفع أول ملف بشكل دائم على Supabase Storage كمرفق أساسي للمذكرة
+      // (بدل التخزين المحلي اللي بيتمسح). لو المستخدم رفع أكتر من ملف، بيتم
+      // دمج نص الكل في المسودة، لكن المرفق القابل للتنزيل هو أول ملف فقط
+      // حاليًا حسب تصميم قاعدة البيانات الحالي.
+      const primaryFile = req.files[0];
       const permanentFileUrl = await uploadLocalFileToStorage(
-        filePath,
-        req.file.originalname || sourceName,
+        primaryFile.path,
+        primaryFile.originalname || sourceName,
       );
-      fs.unlink(filePath, () => {}); // مسح النسخة المؤقتة من السيرفر بعد الرفع
+      req.files.forEach((f) => fs.unlink(f.path, () => {})); // مسح كل النسخ المؤقتة من السيرفر بعد الرفع
 
       const noteRecord = {
         title: draft.title,

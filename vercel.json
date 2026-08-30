@@ -1,7 +1,8 @@
 {
   "functions": {
     "api/index.js": {
-      "includeFiles": "*.{html,css,js}"
+      "includeFiles": "*.{html,css,js}",
+      "maxDuration": 120
     }
   },
   "rewrites": [
