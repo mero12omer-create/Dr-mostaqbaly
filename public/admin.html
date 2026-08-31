@@ -1,0 +1,1426 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <script>
+      function showBanner(text) {
+        var el = document.getElementById("statusBanner");
+        if (!el) {
+          // العنصر لسه متعملش (السكريبت ده بيشتغل الأول)، خزّن الرسالة وحطها بعد تحميل الصفحة
+          document.addEventListener("DOMContentLoaded", function () {
+            showBanner(text);
+          });
+          return;
+        }
+        el.style.display = "block";
+        el.textContent = text;
+      }
+      window.onerror = function (msg, url, line, col, error) {
+        showBanner("⚠️ خطأ JS: " + msg + " — سطر " + line + ":" + col + " — ملف: " + url);
+        return false;
+      };
+      window.addEventListener("unhandledrejection", function (event) {
+        showBanner("⚠️ خطأ Promise: " + (event.reason && event.reason.message ? event.reason.message : event.reason));
+      });
+      showBanner("✅ الصفحة والسكريبتات اتحمّلت لحد هنا (نسخة V3)");
+      setTimeout(function () {
+        var el = document.getElementById("statusBanner");
+        if (el && el.textContent.indexOf("✅") === 0) {
+          el.style.display = "none";
+        }
+      }, 4000);
+      document.addEventListener("DOMContentLoaded", function () {
+        var loginBtn = document.getElementById("adminLoginBtn");
+        if (loginBtn) {
+          loginBtn.addEventListener("click", function () {
+            if (typeof checkAdminPass === "function") {
+              checkAdminPass();
+            } else {
+              showBanner("❌ دالة checkAdminPass مش موجودة - فيه مشكلة في تحميل الكود");
+            }
+          });
+        } else {
+          showBanner("❌ زرار الدخول (adminLoginBtn) مش موجود في الصفحة");
+        }
+        var tabMap = {
+          tabBtnExams: "examsTab",
+          tabBtnNotes: "notesTab",
+          tabBtnStudents: "studentsTab",
+        };
+        Object.keys(tabMap).forEach(function (btnId) {
+          var b = document.getElementById(btnId);
+          if (b) {
+            b.addEventListener("click", function () {
+              showTab(tabMap[btnId], b);
+            });
+          }
+        });
+        var genBtn = document.getElementById("generateExamBtn");
+        if (genBtn) {
+          genBtn.addEventListener("click", function () {
+            if (typeof generateExamQuestions === "function") {
+              generateExamQuestions();
+            } else {
+              showBanner("❌ دالة generateExamQuestions مش موجودة");
+            }
+          });
+        }
+        var searchBtn = document.getElementById("studentSearchBtn");
+        if (searchBtn) {
+          searchBtn.addEventListener("click", function () {
+            if (typeof searchStudent === "function") {
+              searchStudent();
+            } else {
+              showBanner("❌ دالة searchStudent مش موجودة");
+            }
+          });
+        }
+        var refreshBtn = document.getElementById("refreshStudentsBtn");
+        if (refreshBtn) {
+          refreshBtn.addEventListener("click", function () {
+            if (typeof loadStudents === "function") {
+              loadStudents();
+            } else {
+              showBanner("❌ دالة loadStudents مش موجودة");
+            }
+          });
+        }
+        var idFnMap = {
+          publishExamBtn: "publishExamQuestions",
+          addExamContentBtn: "addExamContent",
+          generateAIDraftBtn: "generateAIDraft",
+          approveDraftBtn: "approveDraft",
+          refreshNotesBtn: "loadNotes",
+          resetAllBtn: "resetAll",
+        };
+        Object.keys(idFnMap).forEach(function (btnId) {
+          var el = document.getElementById(btnId);
+          var fnName = idFnMap[btnId];
+          if (el) {
+            el.addEventListener("click", function () {
+              if (typeof window[fnName] === "function") {
+                window[fnName]();
+              } else {
+                showBanner("❌ دالة " + fnName + " مش موجودة");
+              }
+            });
+          }
+        });
+      });
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>لوحة التحكم الشاملة - دكتور مستقبلي 🩺</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      .admin-container {
+        max-width: 900px;
+        margin: 40px auto;
+        padding: 20px;
+      }
+      .admin-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 25px;
+        margin-bottom: 25px;
+        box-shadow: var(--shadow);
+      }
+      .form-group {
+        margin-bottom: 15px;
+        text-align: right;
+      }
+      .form-group label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 6px;
+      }
+      .form-group input,
+      .form-group select,
+      .form-group textarea {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--bg);
+        color: var(--text);
+        font-family: inherit;
+      }
+      .tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        border-bottom: 2px solid var(--border);
+        padding-bottom: 10px;
+      }
+      .tab-btn {
+        padding: 10px 20px;
+        border-radius: 10px;
+        border: none;
+        cursor: pointer;
+        background: var(--bg);
+        color: var(--text);
+        font-weight: bold;
+      }
+      .tab-btn.active {
+        background: var(--primary);
+        color: #fff;
+      }
+      .login-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.85);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+      }
+      .login-box {
+        background: var(--card-bg);
+        padding: 30px;
+        border-radius: 20px;
+        text-align: center;
+        width: 90%;
+        max-width: 380px;
+      }
+      .note-manager {
+        display: grid;
+        gap: 20px;
+      }
+      .note-manager-layout {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 18px;
+      }
+      .note-panel {
+        background: linear-gradient(
+          135deg,
+          rgba(37, 99, 235, 0.08),
+          rgba(16, 185, 129, 0.08)
+        );
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 20px;
+      }
+      .note-preview-card {
+        background: linear-gradient(135deg, #2563eb, #10b981);
+        color: white;
+        border-radius: 18px;
+        padding: 22px;
+        min-height: 240px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        box-shadow: var(--shadow);
+      }
+      .note-preview-badge {
+        display: inline-block;
+        width: fit-content;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.2);
+        font-size: 12px;
+        margin-bottom: 10px;
+      }
+      .note-chip {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.2);
+        font-size: 12px;
+        margin-left: 6px;
+        margin-top: 6px;
+      }
+      .note-list-grid {
+        display: grid;
+        gap: 12px;
+      }
+      .note-list-item {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+      .note-list-item strong {
+        display: block;
+        margin-bottom: 6px;
+      }
+      .note-empty-state {
+        padding: 18px;
+        text-align: center;
+        color: gray;
+        border: 1px dashed var(--border);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+      .ai-note-shell {
+        display: grid;
+        gap: 16px;
+      }
+      .ai-note-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      .ai-note-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 16px;
+      }
+      .ai-preview-box {
+        background: linear-gradient(135deg, #2563eb, #10b981);
+        color: white;
+        border-radius: 16px;
+        padding: 18px;
+        min-height: 260px;
+      }
+      .ai-meta-pill {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.2);
+        font-size: 12px;
+        margin-left: 6px;
+      }
+      .ai-draft-output {
+        white-space: pre-wrap;
+        line-height: 1.8;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px;
+        max-height: 340px;
+        overflow: auto;
+      }
+      @media (max-width: 900px) {
+        .ai-note-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (max-width: 768px) {
+        .note-manager-layout {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="statusBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; background:#dc2626; color:#fff; padding:14px; font-size:15px; text-align:center; direction:rtl; word-break:break-word;"></div>
+    <div class="login-overlay" id="loginOverlay">
+      <div class="login-box">
+        <h3>🔒 لوحة تحكم الأدمن</h3>
+        <div class="form-group">
+          <input type="password" id="passInput" placeholder="كلمة السر" />
+        </div>
+        <button id="adminLoginBtn" class="btn-main" style="width: 100%">
+          دخول 🔑 (V2)
+        </button>
+      </div>
+    </div>
+
+    <div
+      class="container admin-container"
+      id="adminContent"
+      style="display: none"
+    >
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 20px;
+        "
+      >
+        <h2>⚙️ لوحة إدارة المحتوى</h2>
+        <div>
+          <a href="notes.html" class="btn-outline" style="font-size: 12px"
+            >المذكرات ↗️</a
+          >
+          <a href="exams.html" class="btn-outline" style="font-size: 12px"
+            >الامتحانات ↗️</a
+          >
+        </div>
+      </div>
+
+      <div class="tabs">
+        <button id="tabBtnExams" class="tab-btn active">
+          📝 إدارة الامتحانات
+        </button>
+        <button id="tabBtnNotes" class="tab-btn">
+          📚 إدارة المذكرات (PDF)
+        </button>
+        <button id="tabBtnStudents" class="tab-btn">
+          👨‍🎓 إدارة الطلاب
+        </button>
+      </div>
+
+      <div id="examsTab" class="tab-content">
+        <div class="admin-card">
+          <h3>🤖 استخراج أسئلة بالذكاء الاصطناعي من صور/ملفات</h3>
+          <p style="font-size: 13px; color: gray; margin-bottom: 12px">
+            ارفع صورة أو ملف (PDF/صورة) فيه أسئلة اختيار من متعدد، وحدد اسم
+            الدرس، وسيقوم النظام باستخراج الأسئلة والاختيارات تلقائياً. راجع
+            الأسئلة وحدد نقاط كل سؤال قبل الضغط على "نشر".
+          </p>
+          <div class="form-group">
+            <label>اختر المادة:</label>
+            <select id="aiExamSubSelect"></select>
+          </div>
+          <div class="form-group">
+            <label>الفرع:</label>
+            <select id="aiExamBranch">
+              <option value="عام">عام 🎓</option>
+              <option value="أزهر">أزهر 🕌</option>
+              <option value="مشترك">مشترك 🔄</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>اسم الدرس:</label>
+            <input
+              type="text"
+              id="aiLessonTitle"
+              placeholder="مثال: الدرس الثاني: الأزمنة"
+            />
+          </div>
+          <div class="form-group">
+            <label>ارفع صورة/ملف الأسئلة (يمكن اختيار أكثر من ملف):</label>
+            <input
+              type="file"
+              id="aiExamFiles"
+              accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.webp"
+              multiple
+            />
+          </div>
+          <button id="generateExamBtn" class="btn-main">
+            استخراج الأسئلة ✨
+          </button>
+          <div
+            id="aiExamStatus"
+            style="font-size: 13px; color: gray; margin-top: 8px"
+          ></div>
+
+          <div id="aiExamReview" style="display: none; margin-top: 20px">
+            <hr
+              style="
+                margin: 15px 0;
+                border: 0;
+                border-top: 1px solid var(--border);
+              "
+            />
+            <h4>راجع الأسئلة المستخرجة قبل النشر ✅</h4>
+            <p style="font-size: 12px; color: gray">
+              تقدر تعدل نص أي سؤال أو اختيار أو تحدد الإجابة الصحيحة وعدد
+              النقاط، أو تحذف أي سؤال غلط.
+            </p>
+            <div
+              id="aiExamQuestionsList"
+              style="display: grid; gap: 14px"
+            ></div>
+            <button
+              id="publishExamBtn"
+              class="btn-main"
+              style="margin-top: 12px"
+            >
+              🚀 نشر الأسئلة المعتمدة
+            </button>
+          </div>
+        </div>
+
+        <div class="admin-card">
+          <h3>إضافة درس/سؤال جديد (يدوي) 📝</h3>
+          <div class="form-group">
+            <label>اختر المادة:</label>
+            <select id="examSubSelect" onchange="updateLessonList()"></select>
+          </div>
+          <div class="form-group">
+            <label>الفرع:</label>
+            <select id="examBranch">
+              <option value="عام">عام 🎓</option>
+              <option value="أزهر">أزهر 🕌</option>
+              <option value="مشترك">مشترك 🔄</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>اسم الدرس:</label>
+            <input
+              type="text"
+              id="lessonTitle"
+              placeholder="مثال: الدرس الأول: النحو"
+            />
+          </div>
+          <hr
+            style="
+              margin: 20px 0;
+              border: 0;
+              border-top: 1px solid var(--border);
+            "
+          />
+          <p style="font-size: 13px; color: gray">(أضف أول سؤال لهذا الدرس)</p>
+          <div class="form-group">
+            <label>نص السؤال:</label><textarea id="qText" rows="2"></textarea>
+          </div>
+          <div class="form-group">
+            <label>الاختيارات (افصل بينهم بفاصلة):</label>
+            <input
+              type="text"
+              id="qOptions"
+              placeholder="اختيار 1, اختيار 2, اختيار 3, اختيار 4"
+            />
+          </div>
+          <div class="form-group">
+            <label>رقم الإجابة الصحيحة (0، 1، 2، أو 3):</label>
+            <input type="number" id="qCorrect" value="0" min="0" max="3" />
+          </div>
+          <div class="form-group">
+            <label>التوضيح (الشرح):</label
+            ><textarea id="qExp" rows="2"></textarea>
+          </div>
+          <button id="addExamContentBtn" class="btn-main">
+            حفظ الدرس والسؤال 💾
+          </button>
+        </div>
+      </div>
+
+      <div id="notesTab" class="tab-content" style="display: none">
+        <div class="admin-card">
+          <div class="note-manager">
+            <div class="note-manager-layout">
+              <div class="note-panel">
+                <h3>إنشاء مذكرة بالذكاء الاصطناعي 📚🤖</h3>
+                <div class="form-group">
+                  <label>اختر المادة:</label>
+                  <select id="noteSubSelect"></select>
+                </div>
+                <div class="form-group">
+                  <label>الفرع:</label>
+                  <select id="noteBranch">
+                    <option value="عام">عام 🎓</option>
+                    <option value="أزهر">أزهر 🕌</option>
+                    <option value="مشترك">مشترك 🔄</option>
+                  </select>
+                </div>
+                  <div class="form-group">
+                    <label>عنوان المذكرة:</label>
+                    <input
+                      type="text"
+                      id="noteTitle"
+                      placeholder="مثال: ملخص النحو - الفصل الأول"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label>اسم صاحب المذكرة:</label>
+                    <input
+                      type="text"
+                      id="noteOwnerName"
+                      placeholder="مثال: أ/ محمد أحمد"
+                      maxlength="120"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label>رفع المصدر (PDF / DOCX / TXT / صورة) - يمكن اختيار أكثر من ملف:</label>
+                  <input
+                    type="file"
+                    id="noteSourceFile"
+                    accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.webp"
+                    multiple
+                  />
+                </div>
+                <div class="form-group">
+                  <label>حجم الملف (اختياري):</label>
+                  <input type="text" id="noteSize" placeholder="2.5 MB" />
+                </div>
+                <button id="generateAIDraftBtn" class="btn-main">
+                  استخراج المحتوى وإنشاء مذكرة ✨
+                </button>
+                <p style="font-size: 12px; color: gray; margin-top: 8px">
+                  لا يتم نشر أي مذكرة تلقائيًا. ستظهر المسودة أولًا ثم يراجعها
+                  الأدمن ويعتمدها.
+                </p>
+              </div>
+
+              <div class="note-panel">
+                <div id="notePreviewCard" class="note-preview-card">
+                  <div>
+                    <div class="note-preview-badge">معاينة المذكرة</div>
+                    <h4 id="notePreviewTitle">عنوان المذكرة</h4>
+                    <p id="notePreviewMeta">المادة • الفرع</p>
+                    <p id="notePreviewDesc">
+                      ارفع ملفًا أو أدخل العنوان وسيظهر هنا نموذج المسودة.
+                    </p>
+                  </div>
+                  <div>
+                    <span id="notePreviewSubject" class="note-chip"
+                      >المادة</span
+                    >
+                    <span id="notePreviewBranch" class="note-chip">الفرع</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top: 16px">
+              <div class="ai-note-shell">
+                <div class="ai-note-grid">
+                  <div class="ai-note-card">
+                    <h4 style="margin-top: 0">مسودة المذكرة</h4>
+                    <div id="draftOutput" class="ai-draft-output">
+                      سيظهر هنا نص المذكرة بعد المعالجة.
+                    </div>
+                  </div>
+                  <div class="ai-note-card">
+                    <h4 style="margin-top: 0">إجراءات الاعتماد</h4>
+                    <p style="font-size: 13px; color: gray; line-height: 1.8">
+                      بعد مراجعة المسودة، يمكن اعتمادها ونشرها داخل المنصة.
+                      ستظهر علامة مائية باسم دكتور مستقبلي وبيانات التواصل في
+                      نهاية المذكرة.
+                    </p>
+                    <button
+                      id="approveDraftBtn"
+                      class="btn-main"
+                      style="margin-top: 8px"
+                    >
+                      اعتماد المذكرة ✅
+                    </button>
+                    <button
+                      id="refreshNotesBtn"
+                      class="btn-outline"
+                      style="margin-top: 8px"
+                    >
+                      تحديث القائمة
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <h4 style="margin-bottom: 10px">المذكرات الحالية</h4>
+                  <div class="admin-filter-row" style="margin-bottom: 12px">
+                    <select id="adminNotesBranchFilter" class="admin-filter-select">
+                      <option value="all">كل الفروع</option>
+                      <option value="عام">عام</option>
+                      <option value="أزهر">أزهر</option>
+                      <option value="مشترك">مشترك</option>
+                    </select>
+                    <select id="adminNotesGroupFilter" class="admin-filter-select"></select>
+                    <select id="adminNotesSubjectFilter" class="admin-filter-select"></select>
+                  </div>
+                  <div id="notesList" class="note-list-grid"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="studentsTab" class="tab-content" style="display: none">
+        <div class="admin-card">
+          <h3>👨‍🎓 إدارة حساب طالب</h3>
+          <div class="form-group">
+            <label>رقم هاتف الطالب:</label>
+            <div style="display: flex; gap: 8px">
+              <input
+                type="tel"
+                id="studentSearchPhone"
+                placeholder="01xxxxxxxxx"
+                style="flex: 1"
+              />
+              <button id="studentSearchBtn" class="btn-main">بحث 🔍</button>
+            </div>
+          </div>
+
+          <div id="studentResultBox" style="margin-top: 16px"></div>
+          <hr style="border: 0; border-top: 1px solid var(--border); margin: 24px 0;" />
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+            <h4>دليل الطلاب</h4>
+            <button id="refreshStudentsBtn" class="btn-outline" type="button">تحديث القائمة</button>
+          </div>
+          <div class="admin-filter-row" style="margin-top:12px;">
+            <select id="studentsBranchFilter" class="admin-filter-select">
+              <option value="all">كل الفروع</option>
+              <option value="عام">عام</option>
+              <option value="أزهر">أزهر</option>
+            </select>
+            <select id="studentsStatusFilter" class="admin-filter-select">
+              <option value="all">كل الحالات</option>
+              <option value="0">نشط</option>
+              <option value="1">معطل</option>
+            </select>
+          </div>
+          <div id="studentsList" class="note-list-grid" style="margin-top:12px"></div>
+        </div>
+      </div>
+
+      <button
+        id="resetAllBtn"
+        class="btn-outline"
+        style="width: 100%; color: red; border-color: red"
+      >
+        ⚠️ إعادة تعيين كل البيانات (حذف الكل)
+      </button>
+    </div>
+
+    <script src="subjects.js"></script>
+    <script>
+      // كتالوج المواد الموحد من عام وأزهر
+      const SUBJECTS = {};
+      let adminNotesData = [];
+      let adminUsersData = [];
+      const escapeAdminHtml = (value) => String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+      function getAdminSubjectData(branch) {
+        const groups = SubjectCatalog.getGroupsForBranch(branch);
+        const labels = {};
+        groups.forEach((group) => group.subjects.forEach((subject) => {
+          labels[subject.key] = subject.label;
+        }));
+        return { groups, labels };
+      }
+
+      function fillSubjectSelect(select, branch, preferredValue) {
+        if (!select) return;
+        const data = getAdminSubjectData(branch);
+        Object.assign(SUBJECTS, data.labels);
+        select.innerHTML = data.groups.map((group) => `
+          <optgroup label="${group.label}">
+            ${group.subjects.map((subject) => `<option value="${subject.key}">${subject.label}</option>`).join("")}
+          </optgroup>`).join("");
+        const values = Array.from(select.options).map((option) => option.value);
+        if (preferredValue && values.includes(preferredValue)) select.value = preferredValue;
+      }
+
+      // تخزين توكن الأدمن في الذاكرة (لا يُكشف في الكود)
+      let adminToken = localStorage.getItem("adminToken") || "";
+
+      async function checkAdminPass() {
+        showBanner("👆 تم الضغط على الزرار، جاري إرسال الطلب...");
+        const pass = document.getElementById("passInput").value;
+        const btn = document.querySelector(".login-box .btn-main");
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = "جاري التحقق... ⏳";
+        }
+        try {
+          const res = await fetch("/api/admin-login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ password: pass }),
+          });
+          showBanner("📡 وصل رد من السيرفر، كود: " + res.status);
+          const data = await res.json();
+          if (data.success && data.token) {
+            adminToken = data.token;
+            localStorage.setItem("adminToken", adminToken);
+            document.getElementById("loginOverlay").style.display = "none";
+            document.getElementById("adminContent").style.display = "block";
+            document.getElementById("statusBanner").style.display = "none";
+            initSelectors();
+            loadNotes();
+            loadStudents();
+          } else {
+            showBanner("❌ فشل الدخول: " + (data.message || "كلمة السر غير صحيحة!"));
+          }
+        } catch (err) {
+          showBanner("❌ تعذر الاتصال بالخادم: " + (err && err.message ? err.message : err));
+        }
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "دخول 🔑";
+        }
+      }
+
+      function showTab(id, button) {
+        try {
+          document
+            .querySelectorAll(".tab-content")
+            .forEach((tab) => (tab.style.display = "none"));
+          document
+            .querySelectorAll(".tab-btn")
+            .forEach((b) => b.classList.remove("active"));
+          const target = document.getElementById(id);
+          if (!target) {
+            showBanner("❌ عنصر التاب '" + id + "' مش موجود في الصفحة");
+            return;
+          }
+          target.style.display = "block";
+          button?.classList.add("active");
+          if (id === "studentsTab") {
+            loadStudents();
+          }
+        } catch (e) {
+          showBanner("❌ خطأ أثناء تبديل التاب: " + (e && e.message ? e.message : e));
+        }
+      }
+
+      function initSelectors() {
+        const exSel = document.getElementById("examSubSelect");
+        const ntSel = document.getElementById("noteSubSelect");
+        const aiSel = document.getElementById("aiExamSubSelect");
+        const exBranch = document.getElementById("examBranch");
+        const ntBranch = document.getElementById("noteBranch");
+        const aiBranch = document.getElementById("aiExamBranch");
+        const sync = () => {
+          fillSubjectSelect(exSel, exBranch?.value || "عام", exSel?.value);
+          fillSubjectSelect(ntSel, ntBranch?.value || "عام", ntSel?.value);
+          fillSubjectSelect(aiSel, aiBranch?.value || "عام", aiSel?.value);
+          updateNotePreview();
+        };
+        [exBranch, ntBranch, aiBranch].forEach((select) => select?.addEventListener("change", sync));
+        sync();
+        bindNotePreview();
+      }
+
+      // ========================================
+      // استخراج أسئلة بالذكاء الاصطناعي من صور/ملفات + المراجعة والنشر
+      // ========================================
+      let currentExamDraft = null; // { draftId, subjectKey, subjectName, lessonTitle, branch, questions }
+
+      async function generateExamQuestions() {
+        const subjectKey = document.getElementById("aiExamSubSelect").value;
+        const branch = document.getElementById("aiExamBranch").value;
+        const lessonTitle = document
+          .getElementById("aiLessonTitle")
+          .value.trim();
+        const filesInput = document.getElementById("aiExamFiles");
+        const statusBox = document.getElementById("aiExamStatus");
+
+        if (!lessonTitle) return alert("أدخل اسم الدرس أولاً");
+        if (!filesInput.files || filesInput.files.length === 0) {
+          return alert("ارفع صورة أو ملف أسئلة أولاً");
+        }
+
+        const formData = new FormData();
+        formData.append("subjectKey", subjectKey);
+        formData.append("subjectName", SUBJECTS[subjectKey]);
+        formData.append("branch", branch);
+        formData.append("lessonTitle", lessonTitle);
+        Array.from(filesInput.files).forEach((f) =>
+          formData.append("sourceFiles", f),
+        );
+
+        statusBox.textContent = "⏳ جاري تحليل الملفات واستخراج الأسئلة...";
+        document.getElementById("aiExamReview").style.display = "none";
+
+        try {
+          const res = await fetch("/api/admin/exams/generate", {
+            method: "POST",
+            headers: { "x-admin-token": adminToken },
+            body: formData,
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            statusBox.textContent = "";
+            alert(data.message || "تعذر استخراج الأسئلة");
+            return;
+          }
+
+          statusBox.textContent =
+            data.message || "تم الاستخراج، راجع الأسئلة تحت 👇";
+          currentExamDraft = {
+            draftId: data.draftId,
+            subjectKey,
+            subjectName: SUBJECTS[subjectKey],
+            lessonTitle,
+            branch,
+            questions: data.questions,
+          };
+          renderAiExamQuestions();
+        } catch (err) {
+          statusBox.textContent = "";
+          alert("تعذر الاتصال بالسيرفر");
+        }
+      }
+
+      function renderAiExamQuestions() {
+        const list = document.getElementById("aiExamQuestionsList");
+        const reviewBox = document.getElementById("aiExamReview");
+        if (!currentExamDraft || !currentExamDraft.questions.length) {
+          reviewBox.style.display = "none";
+          return;
+        }
+        reviewBox.style.display = "block";
+
+        list.innerHTML = currentExamDraft.questions
+          .map((q, qIdx) => {
+            const optionsHtml = q.options
+              .map(
+                (opt, oIdx) => `
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                  <input type="radio" name="correct_${qIdx}" ${oIdx === q.correct ? "checked" : ""}
+                    onchange="setCorrectOption(${qIdx}, ${oIdx})" />
+                  <input type="text" value="${escapeAdminHtml(opt || "")}"
+                    oninput="updateOptionText(${qIdx}, ${oIdx}, this.value)"
+                    style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
+                </div>`,
+              )
+              .join("");
+
+            return `
+              <div class="ai-note-card">
+                <div style="display:flex; justify-content:space-between; gap:10px;">
+                  <strong>سؤال ${qIdx + 1}</strong>
+                  <button class="btn-outline" style="padding:4px 10px; font-size:12px; color:red; border-color:red;"
+                    onclick="removeAiQuestion(${qIdx})">حذف السؤال 🗑️</button>
+                </div>
+                <textarea rows="2" style="margin:8px 0; width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text);"
+                  oninput="updateQuestionText(${qIdx}, this.value)">${escapeAdminHtml(q.q || "")}</textarea>
+                <label style="font-size:12px; color:gray;">الاختيارات (حدد دائرة الإجابة الصحيحة):</label>
+                ${optionsHtml}
+                <label style="font-size:12px; color:gray;">التوضيح (اختياري):</label>
+                <input type="text" value="${escapeAdminHtml(q.exp || "")}"
+                  oninput="updateExpText(${qIdx}, this.value)"
+                  style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); margin-bottom:8px;" />
+                <label style="font-size:12px; color:gray;">عدد نقاط هذا السؤال:</label>
+                <input type="number" min="1" max="10" value="${escapeAdminHtml(q.points || 2)}"
+                  oninput="updatePoints(${qIdx}, this.value)"
+                  style="width:100px; padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
+              </div>`;
+          })
+          .join("");
+      }
+
+      function setCorrectOption(qIdx, oIdx) {
+        currentExamDraft.questions[qIdx].correct = oIdx;
+      }
+      function updateOptionText(qIdx, oIdx, val) {
+        currentExamDraft.questions[qIdx].options[oIdx] = val;
+      }
+      function updateQuestionText(qIdx, val) {
+        currentExamDraft.questions[qIdx].q = val;
+      }
+      function updateExpText(qIdx, val) {
+        currentExamDraft.questions[qIdx].exp = val;
+      }
+      function updatePoints(qIdx, val) {
+        currentExamDraft.questions[qIdx].points = Math.max(
+          1,
+          Math.min(10, parseInt(val, 10) || 2),
+        );
+      }
+      function removeAiQuestion(qIdx) {
+        currentExamDraft.questions.splice(qIdx, 1);
+        renderAiExamQuestions();
+      }
+
+      async function publishExamQuestions() {
+        if (!currentExamDraft || !currentExamDraft.questions.length) {
+          return alert("لا توجد أسئلة للنشر");
+        }
+        try {
+          const res = await fetch("/api/admin/exams/publish", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-admin-token": adminToken,
+            },
+            body: JSON.stringify(currentExamDraft),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            alert(data.message || "تعذر نشر الأسئلة");
+            return;
+          }
+          alert("تم نشر الأسئلة بنجاح ✅");
+          currentExamDraft = null;
+          document.getElementById("aiExamReview").style.display = "none";
+          document.getElementById("aiExamStatus").textContent = "";
+          document.getElementById("aiLessonTitle").value = "";
+          document.getElementById("aiExamFiles").value = "";
+        } catch (err) {
+          alert("تعذر الاتصال بالسيرفر");
+        }
+      }
+
+      // ========================================
+      // إدارة الطلاب (بحث / تعطيل / حذف / إعادة تعيين كلمة السر)
+      // ========================================
+      function renderStudentsList() {
+        const list = document.getElementById("studentsList");
+        if (!list) return;
+        const branch = document.getElementById("studentsBranchFilter")?.value || "all";
+        const status = document.getElementById("studentsStatusFilter")?.value || "all";
+        const users = adminUsersData.filter((user) =>
+          (branch === "all" || user.branch === branch) && (status === "all" || String(Number(Boolean(user.disabled))) === status),
+        );
+        if (!users.length) {
+          list.innerHTML = '<div class="note-empty-state">لا يوجد طلاب بهذا الفلتر</div>';
+          return;
+        }
+        list.innerHTML = users.map((user) => `
+          <div class="note-list-item" style="display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap;">
+            <div>
+              <strong>${escapeAdminHtml(user.name || "طالب")}</strong>
+              <div style="font-size:13px; color:gray;">${escapeAdminHtml(user.branch || "عام")} • ${escapeAdminHtml(user.points)} نقطة • ${user.disabled ? "معطل" : "نشط"}</div>
+            </div>
+            <button class="btn-outline" type="button" data-phone="${escapeAdminHtml(user.phone)}">فتح الإدارة</button>
+          </div>`).join("");
+        list.querySelectorAll("button[data-phone]").forEach((button) => button.addEventListener("click", () => {
+          document.getElementById("studentSearchPhone").value = button.dataset.phone;
+          searchStudent();
+        }));
+      }
+
+      async function loadStudents() {
+        const list = document.getElementById("studentsList");
+        if (!list) return;
+        list.innerHTML = '<div class="note-empty-state">جاري تحميل الطلاب...</div>';
+        try {
+          const res = await fetch("/api/admin/users", { headers: { "x-admin-token": adminToken } });
+          const data = await res.json();
+          if (!res.ok || !data.success) throw new Error("load failed");
+          adminUsersData = data.users || [];
+          ["studentsBranchFilter", "studentsStatusFilter"].forEach((id) => {
+            const select = document.getElementById(id);
+            if (select && !select.dataset.bound) {
+              select.addEventListener("change", renderStudentsList);
+              select.dataset.bound = "1";
+            }
+          });
+          renderStudentsList();
+        } catch (error) {
+          list.innerHTML = '<div class="note-empty-state">تعذر تحميل قائمة الطلاب</div>';
+        }
+      }
+
+      async function searchStudent() {
+        const phone = document
+          .getElementById("studentSearchPhone")
+          .value.trim();
+        const box = document.getElementById("studentResultBox");
+        if (!phone) return alert("أدخل رقم هاتف الطالب");
+
+        box.innerHTML = "جاري البحث...";
+        try {
+          const res = await fetch(
+            `/api/admin/users/${encodeURIComponent(phone)}`,
+            { headers: { "x-admin-token": adminToken } },
+          );
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            box.innerHTML = `<div class="note-empty-state">${data.message || "لا يوجد طالب بهذا الرقم"}</div>`;
+            return;
+          }
+          renderStudentCard(data.user);
+        } catch (err) {
+          box.innerHTML = `<div class="note-empty-state">تعذر الاتصال بالسيرفر</div>`;
+        }
+      }
+
+      function renderStudentCard(user) {
+        const box = document.getElementById("studentResultBox");
+        box.innerHTML = `
+          <div class="note-list-item" style="flex-direction:column; align-items:stretch; gap:12px;">
+            <div>
+              <strong>${escapeAdminHtml(user.name || "طالب")}</strong>
+              <div style="font-size:13px; color:gray;">📱 ${escapeAdminHtml(user.phone)} • ✉️ ${escapeAdminHtml(user.email || "-")}</div>
+              <div style="font-size:13px; color:gray; margin-top:4px;">النظام: ${escapeAdminHtml(user.branch || "عام")} • النقاط: ${escapeAdminHtml(user.points)} • الحالة: ${user.disabled ? "🔴 معطل" : "🟢 نشط"}</div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn-outline" type="button" data-action="toggle">
+                ${user.disabled ? "تفعيل الحساب ✅" : "تعطيل الحساب 🚫"}
+              </button>
+              <button class="btn-outline" type="button" data-action="reset">
+                🔑 إعادة تعيين كلمة السر
+              </button>
+              <button class="btn-outline" type="button" data-action="delete" style="color:red; border-color:red;">
+                🗑️ حذف الحساب نهائياً
+              </button>
+            </div>
+          </div>`;
+        box.querySelector('[data-action="toggle"]')?.addEventListener("click", () => toggleStudentDisabled(user.phone, !Boolean(user.disabled)));
+        box.querySelector('[data-action="reset"]')?.addEventListener("click", () => resetStudentPassword(user.phone));
+        box.querySelector('[data-action="delete"]')?.addEventListener("click", () => deleteStudent(user.phone));
+      }
+
+      async function toggleStudentDisabled(phone, disable) {
+        try {
+          const res = await fetch("/api/admin/users/toggle-disabled", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-admin-token": adminToken,
+            },
+            body: JSON.stringify({ phone, disabled: disable }),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            alert(data.message || "تعذر تنفيذ العملية");
+            return;
+          }
+          alert(data.message);
+          searchStudent();
+        } catch (err) {
+          alert("تعذر الاتصال بالسيرفر");
+        }
+      }
+
+      async function deleteStudent(phone) {
+        if (
+          !confirm(
+            `متأكد إنك عايز تحذف حساب الطالب ${phone} نهائياً؟ العملية دي مش هترجع.`,
+          )
+        )
+          return;
+        try {
+          const res = await fetch("/api/admin/users/delete", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-admin-token": adminToken,
+            },
+            body: JSON.stringify({ phone }),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            alert(data.message || "تعذر حذف الحساب");
+            return;
+          }
+          alert("تم حذف الحساب");
+          document.getElementById("studentResultBox").innerHTML = "";
+          document.getElementById("studentSearchPhone").value = "";
+        } catch (err) {
+          alert("تعذر الاتصال بالسيرفر");
+        }
+      }
+
+      async function resetStudentPassword(phone) {
+        const custom = prompt(
+          "اكتب كلمة السر الجديدة (6 أحرف على الأقل)، أو اتركها فاضية لتوليد كلمة سر عشوائية:",
+        );
+        if (custom === null) return; // إلغاء
+        try {
+          const res = await fetch("/api/admin/users/reset-password", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-admin-token": adminToken,
+            },
+            body: JSON.stringify({ phone, newPassword: custom }),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            alert(data.message || "تعذر إعادة تعيين كلمة السر");
+            return;
+          }
+          alert(
+            `تم تغيير كلمة السر بنجاح ✅\nكلمة السر الجديدة: ${data.newPassword}\n(بلّغ الطالب بيها الآن، مش هتظهر تاني)`,
+          );
+        } catch (err) {
+          alert("تعذر الاتصال بالسيرفر");
+        }
+      }
+
+      function bindNotePreview() {
+        const titleInput = document.getElementById("noteTitle");
+        const subjectSelect = document.getElementById("noteSubSelect");
+        const branchSelect = document.getElementById("noteBranch");
+        const urlInput = document.getElementById("noteUrl");
+        const sizeInput = document.getElementById("noteSize");
+        const ownerInput = document.getElementById("noteOwnerName");
+
+        [titleInput, subjectSelect, branchSelect, urlInput, sizeInput, ownerInput].forEach(
+          (el) => {
+            if (el) {
+              el.removeEventListener("input", updateNotePreview);
+              el.removeEventListener("change", updateNotePreview);
+              el.addEventListener("input", updateNotePreview);
+              el.addEventListener("change", updateNotePreview);
+            }
+          },
+        );
+        updateNotePreview();
+      }
+
+      function updateNotePreview() {
+        const titleEl = document.getElementById("notePreviewTitle");
+        const metaEl = document.getElementById("notePreviewMeta");
+        const descEl = document.getElementById("notePreviewDesc");
+        const subjectEl = document.getElementById("notePreviewSubject");
+        const branchEl = document.getElementById("notePreviewBranch");
+        const titleInput = document.getElementById("noteTitle");
+        const subjectSelect = document.getElementById("noteSubSelect");
+        const branchSelect = document.getElementById("noteBranch");
+        const urlInput = document.getElementById("noteUrl");
+        const sizeInput = document.getElementById("noteSize");
+        const ownerInput = document.getElementById("noteOwnerName");
+
+        if (!titleEl || !metaEl || !descEl || !subjectEl || !branchEl) return;
+
+        const title = titleInput?.value.trim() || "عنوان المذكرة";
+        const subject = SUBJECTS[subjectSelect?.value] || "المادة";
+        const branch = branchSelect?.value || "عام";
+        const owner = ownerInput?.value.trim() || "صاحب المذكرة";
+        const url = urlInput?.value.trim() || "";
+        const size = sizeInput?.value.trim() || "غير معروف";
+
+        titleEl.textContent = title;
+        metaEl.textContent = `${subject} • ${branch} • ${owner}`;
+        descEl.textContent = url
+          ? `سيتم ربط الملف: ${url} • الحجم: ${size}`
+          : `صاحب المذكرة: ${owner}`;
+        subjectEl.textContent = subject;
+        branchEl.textContent = branch;
+      }
+
+      // حفظ الامتحانات
+      async function addExamContent() {
+        const sub = document.getElementById("examSubSelect").value;
+        const branch = document.getElementById("examBranch").value;
+        const title = document.getElementById("lessonTitle").value.trim();
+        const qText = document.getElementById("qText").value.trim();
+        const options = document
+          .getElementById("qOptions")
+          .value.split(",")
+          .map((s) => s.trim());
+        const correct = parseInt(document.getElementById("qCorrect").value);
+        const exp = document.getElementById("qExp").value.trim();
+
+        if (!title || !qText || options.length < 2)
+          return alert("أكمل البيانات!");
+
+        // حفظ محلياً (نسخة احتياطية)
+        let data = JSON.parse(localStorage.getItem("coursesData")) || {};
+        if (!data[sub]) data[sub] = { title: SUBJECTS[sub], lessons: [] };
+        data[sub].lessons.push({
+          id: "L" + Date.now(),
+          title: title,
+          branch: branch,
+          questions: [
+            { q: qText, options: options, correct: correct, exp: exp },
+          ],
+        });
+        localStorage.setItem("coursesData", JSON.stringify(data));
+
+        // إرسال إلى السيرفر مع الفرع
+        try {
+          const question = {
+            q: qText,
+            options: options,
+            correct: correct,
+            exp: exp,
+          };
+          const res = await fetch("/api/exams", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-admin-token": adminToken,
+            },
+            body: JSON.stringify({
+              subjectKey: sub,
+              subjectName: SUBJECTS[sub],
+              lessonTitle: title,
+              branch: branch,
+              content: [question],
+            }),
+          });
+          if (res.ok) {
+            alert("تم حفظ الدرس والسؤال في السيرفر بنجاح! 💾");
+          } else {
+            alert("تم الحفظ محلياً فقط (السيرفر غير متصل)");
+          }
+        } catch (err) {
+          alert("تم الحفظ محلياً فقط (السيرفر غير متصل)");
+        }
+      }
+
+      // حفظ المذكرات
+      async function generateAIDraft() {
+        const sub = document.getElementById("noteSubSelect").value;
+        const branch = document.getElementById("noteBranch").value;
+        const title = document.getElementById("noteTitle").value.trim();
+        const ownerName = document.getElementById("noteOwnerName").value.trim();
+        const fileInput = document.getElementById("noteSourceFile");
+        const size =
+          document.getElementById("noteSize").value.trim() || "غير معروف";
+        const draftOutput = document.getElementById("draftOutput");
+
+        if (!title) return alert("أدخل عنوان المذكرة أولًا");
+        if (!ownerName) return alert("أدخل اسم صاحب المذكرة أولًا");
+        if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+          return alert("يرجى رفع ملف مصدر واحد على الأقل");
+        }
+
+        const formData = new FormData();
+        formData.append("title", title);
+        formData.append("subjectName", SUBJECTS[sub]);
+        formData.append("subjectKey", sub);
+        formData.append("branch", branch);
+        formData.append("ownerName", ownerName);
+        formData.append("size", size);
+        formData.append("sourceType", "ملف مرفوع");
+        formData.append(
+          "sourceName",
+          Array.from(fileInput.files).map((f) => f.name).join("، "),
+        );
+        Array.from(fileInput.files).forEach((f) =>
+          formData.append("sourceFiles", f),
+        );
+
+        if (draftOutput) {
+          draftOutput.textContent = "جاري استخراج المحتوى وإعداد المسودة...";
+        }
+
+        try {
+          const res = await fetch("/api/admin/notes/generate", {
+            method: "POST",
+            headers: { "x-admin-token": adminToken },
+            body: formData,
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            alert(data.message || "تعذر إنشاء المسودة");
+            return;
+          }
+
+          currentDraft = data.draft;
+          if (draftOutput) {
+            const aiDraft = data.draft?.aiDraft
+              ? JSON.parse(data.draft.aiDraft)
+              : null;
+            draftOutput.textContent = aiDraft
+              ? `${aiDraft.title}\n\n${aiDraft.sections?.map((section) => `### ${section.title}\n${section.content}`).join("\n\n")}`
+              : "تم إنشاء مسودة لكن لا توجد محتويات جاهزة للعرض";
+          }
+
+          updateNotePreview(title, SUBJECTS[sub], branch);
+          alert("تم إنشاء المسودة بنجاح، وها هي جاهزة للمراجعة والاعتماد");
+          loadNotes();
+        } catch (err) {
+          showBanner("❌ فشل إنشاء المسودة: " + (err && err.message ? err.message : err));
+          alert("تعذر إنشاء المسودة بسبب مشكلة في السيرفر");
+        }
+      }
+
+      async function approveDraft() {
+        if (!currentDraft) return alert("لا توجد مسودة جاهزة للقبول");
+        const title =
+          document.getElementById("noteTitle").value.trim() ||
+          currentDraft.title;
+        const branch =
+          document.getElementById("noteBranch").value || currentDraft.branch;
+        const draftPayload = currentDraft.aiDraft
+          ? JSON.parse(currentDraft.aiDraft)
+          : {};
+
+        try {
+          const res = await fetch("/api/admin/notes/approve", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-admin-token": adminToken,
+            },
+            body: JSON.stringify({
+              id: currentDraft.id,
+              title,
+              subjectKey: currentDraft.subjectKey,
+              subjectName: currentDraft.subjectName,
+              ownerName: currentDraft.ownerName,
+              branch,
+              content: draftPayload,
+              sourceText: draftPayload.sourceText || "",
+              warnings: draftPayload.warnings || [],
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            alert(data.message || "تعذر اعتماد المذكرة");
+            return;
+          }
+          alert("تم اعتماد المذكرة ونشرها داخل المنصة ✅");
+          loadNotes();
+        } catch (err) {
+          alert("حدث خطأ أثناء اعتماد المذكرة");
+        }
+      }
+
+      function initAdminNotesFilters() {
+        const branchFilter = document.getElementById("adminNotesBranchFilter");
+        const groupFilter = document.getElementById("adminNotesGroupFilter");
+        const subjectFilter = document.getElementById("adminNotesSubjectFilter");
+        if (!branchFilter || !groupFilter || !subjectFilter) return;
+        const updateOptions = () => {
+          const branch = branchFilter.value === "أزهر" ? "أزهر" : "عام";
+          const groups = SubjectCatalog.getGroupsForBranch(branch);
+          groupFilter.innerHTML = `<option value="all">كل المجموعات</option>${groups.map((group) => `<option value="${group.key}">${escapeAdminHtml(group.label)}</option>`).join("")}`;
+          subjectFilter.innerHTML = `<option value="all">كل المواد</option>${groups.flatMap((group) => group.subjects).map((subject) => `<option value="${subject.key}">${escapeAdminHtml(subject.label)}</option>`).join("")}`;
+          renderAdminNotes();
+        };
+        if (!branchFilter.dataset.bound) {
+          branchFilter.addEventListener("change", updateOptions);
+          groupFilter.addEventListener("change", renderAdminNotes);
+          subjectFilter.addEventListener("change", renderAdminNotes);
+          branchFilter.dataset.bound = "1";
+        }
+        updateOptions();
+      }
+
+      function renderAdminNotes() {
+        const list = document.getElementById("notesList");
+        if (!list) return;
+        const branch = document.getElementById("adminNotesBranchFilter")?.value || "all";
+        const group = document.getElementById("adminNotesGroupFilter")?.value || "all";
+        const subject = document.getElementById("adminNotesSubjectFilter")?.value || "all";
+        const notes = adminNotesData.filter((note) => {
+          const noteSubject = SubjectCatalog.normalizeSubjectKey(note.subjectKey);
+          const noteGroup = note.subjectGroup || SubjectCatalog.getSubjectGroup(noteSubject, note.branch);
+          return (branch === "all" || note.branch === branch) && (group === "all" || noteGroup === group) && (subject === "all" || noteSubject === subject);
+        });
+        if (!notes.length) {
+          list.innerHTML = '<div class="note-empty-state">لا توجد مذكرات بهذا الفلتر</div>';
+          return;
+        }
+        list.innerHTML = notes.map((note) => `
+          <div class="note-list-item">
+            <div>
+              <strong>${escapeAdminHtml(note.title || "مذكرة")}</strong>
+              <div style="font-size: 13px; color: gray;">${escapeAdminHtml(note.subjectName || "")} • ${escapeAdminHtml(note.branch || "عام")}</div>
+              <div style="font-size: 12px; color: gray; margin-top: 4px;">صاحب المذكرة: ${escapeAdminHtml(note.ownerName || "غير محدد")}</div>
+              <div style="font-size: 12px; color: gray; margin-top: 4px;">${escapeAdminHtml(note.size || "غير معروف")}</div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <span class="note-chip">${escapeAdminHtml(note.isDraft ? "مسودة" : "منشورة")}</span>
+              <a href="${escapeAdminHtml(note.fileUrl || "#")}" target="_blank" rel="noopener noreferrer" class="btn-outline" style="padding: 6px 10px; font-size: 12px;">فتح الملف</a>
+            </div>
+          </div>`).join("");
+      }
+
+      async function loadNotes() {
+        const list = document.getElementById("notesList");
+        if (!list) return;
+        list.innerHTML = '<div class="note-empty-state">جاري تحميل المذكرات...</div>';
+        try {
+          const res = await fetch("/api/admin/notes", { headers: { "x-admin-token": adminToken } });
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            list.innerHTML = '<div class="note-empty-state">تعذر تحميل المذكرات من السيرفر</div>';
+            return;
+          }
+          adminNotesData = data.notes || [];
+          initAdminNotesFilters();
+          renderAdminNotes();
+        } catch (err) {
+          list.innerHTML = '<div class="note-empty-state">تعذر تحميل المذكرات من السيرفر</div>';
+        }
+      }
+
+      let currentDraft = null;
+
+      function resetAll() {
+        if (confirm("هل أنت متأكد من حذف كل شيء؟")) {
+          localStorage.removeItem("coursesData");
+          localStorage.removeItem("notesData");
+          location.reload();
+        }
+      }
+    </script>
+  </body>
+</html>

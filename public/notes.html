@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <script>
+      function showBanner(text) {
+        var el = document.getElementById("statusBanner");
+        if (!el) {
+          document.addEventListener("DOMContentLoaded", function () { showBanner(text); });
+          return;
+        }
+        el.style.display = "block";
+        el.textContent = text;
+      }
+      window.onerror = function (msg, url, line, col, error) {
+        showBanner("⚠️ خطأ JS: " + msg + " — سطر " + line + ":" + col);
+        return false;
+      };
+      window.addEventListener("unhandledrejection", function (event) {
+        showBanner("⚠️ خطأ Promise: " + (event.reason && event.reason.message ? event.reason.message : event.reason));
+      });
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>بنك المذكرات - دكتور مستقبلي 🩺</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      .filter-bar {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 25px;
+        overflow-x: auto;
+        padding-bottom: 8px;
+      }
+      .filter-btn {
+        background: var(--card-bg, #fff);
+        border: 1px solid var(--border, #ccc);
+        color: var(--text, #333);
+        padding: 8px 18px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .filter-btn.active,
+      .filter-btn:hover {
+        background: #2563eb;
+        color: #fff;
+        border-color: #2563eb;
+      }
+      .pdf-card {
+        background: var(--card-bg, #fff);
+        border: 1px solid var(--border, #ccc);
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .pdf-icon-box {
+        width: 50px;
+        height: 50px;
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        margin-bottom: 12px;
+      }
+      .pdf-info h3 {
+        font-size: 16px;
+        margin-bottom: 6px;
+      }
+      .pdf-info p {
+        font-size: 13px;
+        color: gray;
+        margin-bottom: 15px;
+      }
+      .pdf-actions {
+        display: flex;
+        gap: 8px;
+      }
+      .btn-action {
+        flex: 1;
+        text-align: center;
+        padding: 10px;
+        font-size: 13px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: bold;
+        cursor: pointer;
+        display: inline-block;
+      }
+      .btn-read {
+        border: 1px solid #2563eb;
+        color: #2563eb;
+        background: transparent;
+      }
+      .btn-download {
+        background: #2563eb;
+        color: #fff;
+        border: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="statusBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; background:#dc2626; color:#fff; padding:14px; font-size:15px; text-align:center; direction:rtl; word-break:break-word;"></div>
+    <header class="fixed-header">
+      <div class="navbar">
+        <h2 class="logo">دكتور مستقبلي 🩺</h2>
+      </div>
+    </header>
+
+    <main class="container" style="margin-top: 80px; padding: 20px">
+      <h2 class="section-title">📚 مكتبة المذكرات والملخصات (PDF)</h2>
+
+      <div
+        style="
+          margin-bottom: 16px;
+          padding: 12px 14px;
+          background: rgba(37, 99, 235, 0.08);
+          border: 1px solid rgba(37, 99, 235, 0.2);
+          border-radius: 12px;
+          color: var(--text);
+        "
+      >
+        المحتوى المعروض الآن للنظام: <strong id="notesBranchLabel">عام</strong>
+      </div>
+
+      <div class="content-filter-panel">
+        <div class="filter-select-row">
+          <label for="notesBranchSelect">النظام الدراسي</label>
+          <select id="notesBranchSelect" class="content-select">
+            <option value="عام">عام 🎓</option>
+            <option value="أزهر">أزهر 🕌</option>
+          </select>
+        </div>
+        <div class="filter-caption">اختر المجموعة ثم المادة</div>
+        <div class="filter-bar" id="groupFilterBar"></div>
+        <div class="filter-bar" id="subjectFilterBar"></div>
+      </div>
+
+      <div
+        class="cards-grid-4"
+        id="notesGrid"
+        style="
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+          gap: 20px;
+        "
+      ></div>
+    </main>
+
+    <script src="subjects.js"></script>
+    <script>
+      let currentBranch = localStorage.getItem("userBranch") === "أزهر" ? "أزهر" : "عام";
+      let currentGroup = "all";
+      let currentCategory = "all";
+      let serverNotes = [];
+
+      const escapeHtml = (value) => String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+      function setActiveButton(container, key) {
+        container?.querySelectorAll(".filter-btn").forEach((button) => {
+          button.classList.toggle("active", button.dataset.key === key);
+        });
+      }
+
+      function renderFilterControls() {
+        const branchSelect = document.getElementById("notesBranchSelect");
+        if (branchSelect) branchSelect.value = currentBranch;
+        const groups = SubjectCatalog.getGroupsForBranch(currentBranch);
+        const groupBar = document.getElementById("groupFilterBar");
+        const subjectBar = document.getElementById("subjectFilterBar");
+        if (!groupBar || !subjectBar) return;
+
+        groupBar.innerHTML = [
+          `<button class="filter-btn ${currentGroup === "all" ? "active" : ""}" data-key="all" data-action="group">كل المجموعات ✨</button>`,
+          ...groups.map((group) => `<button class="filter-btn ${currentGroup === group.key ? "active" : ""}" data-key="${group.key}" data-action="group">${escapeHtml(group.label)}</button>`),
+        ].join("");
+
+        const selectedGroup = currentGroup === "all"
+          ? null
+          : groups.find((group) => group.key === currentGroup);
+        const subjects = selectedGroup
+          ? selectedGroup.subjects
+          : groups.flatMap((group) => group.subjects);
+        subjectBar.innerHTML = [
+          `<button class="filter-btn ${currentCategory === "all" ? "active" : ""}" data-key="all" data-action="subject">كل المواد</button>`,
+          ...subjects.map((subject) => `<button class="filter-btn ${currentCategory === subject.key ? "active" : ""}" data-key="${subject.key}" data-action="subject">${escapeHtml(subject.label)}</button>`),
+        ].join("");
+      }
+
+      async function renderNotes() {
+        const localNotes = (() => {
+          try { return JSON.parse(localStorage.getItem("notesData")) || []; }
+          catch { return []; }
+        })();
+
+        try {
+          const res = await fetch(`/api/notes?branch=${encodeURIComponent(currentBranch)}`);
+          const data = await res.json();
+          if (data.success) serverNotes = data.notes || [];
+        } catch (error) {
+          console.warn("تعذر جلب المذكرات من السيرفر:", error);
+        }
+
+        const serverIds = new Set(serverNotes.map((note) => String(note.id)));
+        const allNotes = [
+          ...serverNotes,
+          ...localNotes.filter((note) => !note.id || !serverIds.has(String(note.id))),
+        ].filter((note) => !note.branch || note.branch === currentBranch || note.branch === "مشترك");
+
+        const filtered = allNotes.filter((note) => {
+          const subjectKey = SubjectCatalog.normalizeSubjectKey(note.subjectKey || note.subject_key);
+          const subjectGroup = note.subjectGroup || SubjectCatalog.getSubjectGroup(subjectKey, currentBranch);
+          const groupMatch = currentGroup === "all" || subjectGroup === currentGroup;
+          const subjectMatch = currentCategory === "all" || subjectKey === currentCategory;
+          return groupMatch && subjectMatch;
+        });
+
+        const grid = document.getElementById("notesGrid");
+        if (!grid) return;
+        grid.innerHTML = "";
+        if (!filtered.length) {
+          grid.innerHTML = `<p class="empty-state-wide">لا توجد مذكرات منشورة في هذا الفلتر حالياً 📄</p>`;
+          return;
+        }
+
+        filtered.forEach((note) => {
+          const fileUrl = note.fileUrl || note.file_url || "";
+          const subjectName = note.subjectName || note.subject_name || SubjectCatalog.getSubjectLabel(note.subjectKey, currentBranch, "مادة");
+          const size = note.size || "غير محدد";
+          const card = document.createElement("div");
+          card.className = "pdf-card reveal-card";
+          card.innerHTML = `
+            <div>
+              <div class="pdf-icon-box">📄</div>
+              <div class="pdf-info">
+                <h3>${escapeHtml(note.title || "مذكرة")}</h3>
+                <p>المادة: ${escapeHtml(subjectName)} | الحجم: ${escapeHtml(size)}</p>
+                <p class="note-owner">صاحب المذكرة: ${escapeHtml(note.ownerName || "غير محدد")}</p>
+              </div>
+            </div>
+            <div class="pdf-actions">
+              <button class="btn-action btn-read" data-url="${escapeHtml(fileUrl)}">فتح / قراءة 👁️</button>
+              <button class="btn-action btn-download" data-url="${escapeHtml(fileUrl)}">تحميل 📥</button>
+            </div>`;
+          card.querySelector(".btn-read").addEventListener("click", () => openPdf(fileUrl));
+          card.querySelector(".btn-download").addEventListener("click", () => downloadPdf(fileUrl));
+          grid.appendChild(card);
+        });
+      }
+
+      function filterNotes(cat, btn) {
+        currentCategory = cat;
+        setActiveButton(document.getElementById("subjectFilterBar"), cat);
+        renderNotes();
+      }
+
+      function filterNotesGroup(group, btn) {
+        currentGroup = group;
+        currentCategory = "all";
+        renderFilterControls();
+        renderNotes();
+      }
+
+      function changeNotesBranch(branch) {
+        currentBranch = branch === "أزهر" ? "أزهر" : "عام";
+        localStorage.setItem("userBranch", currentBranch);
+        const label = document.getElementById("notesBranchLabel");
+        if (label) label.textContent = currentBranch;
+        currentGroup = "all";
+        currentCategory = "all";
+        renderFilterControls();
+        renderNotes();
+      }
+
+      function openPdf(url) {
+        if (!url) return alert("رابط الملف غير صالح!");
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
+
+      function downloadPdf(url) {
+        if (!url) return alert("رابط الملف غير صالح!");
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "";
+        a.rel = "noopener";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+
+      window.addEventListener("DOMContentLoaded", () => {
+        const label = document.getElementById("notesBranchLabel");
+        if (label) label.textContent = currentBranch;
+        const branchSelect = document.getElementById("notesBranchSelect");
+        branchSelect?.addEventListener("change", (event) => changeNotesBranch(event.target.value));
+
+        // تفويض الأحداث (event delegation) لأزرار المجموعات/المواد
+        // اللي بتتولد ديناميكيًا - أضمن من onclick المكتوب جوه innerHTML
+        document.getElementById("groupFilterBar")?.addEventListener("click", (event) => {
+          const btn = event.target.closest("button[data-action='group']");
+          if (btn) filterNotesGroup(btn.dataset.key, btn);
+        });
+        document.getElementById("subjectFilterBar")?.addEventListener("click", (event) => {
+          const btn = event.target.closest("button[data-action='subject']");
+          if (btn) filterNotes(btn.dataset.key, btn);
+        });
+
+        renderFilterControls();
+        renderNotes();
+      });
+    </script>
+  </body>
+</html>

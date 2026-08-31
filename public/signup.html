@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <script>
+      function showBanner(text) {
+        var el = document.getElementById("statusBanner");
+        if (!el) {
+          document.addEventListener("DOMContentLoaded", function () { showBanner(text); });
+          return;
+        }
+        el.style.display = "block";
+        el.textContent = text;
+      }
+      window.onerror = function (msg, url, line, col, error) {
+        showBanner("⚠️ خطأ JS: " + msg + " — سطر " + line + ":" + col);
+        return false;
+      };
+      window.addEventListener("unhandledrejection", function (event) {
+        showBanner("⚠️ خطأ Promise: " + (event.reason && event.reason.message ? event.reason.message : event.reason));
+      });
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>إنشاء حساب - دكتور مستقبلي 🩺</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="statusBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; background:#dc2626; color:#fff; padding:14px; font-size:15px; text-align:center; direction:rtl; word-break:break-word;"></div>
+    <main class="container">
+      <div class="login-box">
+        <h2>إنشاء حساب جديد 🩺</h2>
+        <p>انضم لطلاب الثانوية وابدأ رحلتك الآن</p>
+
+        <form id="signupForm">
+          <div class="form-group">
+            <label for="name">الاسم بالكامل</label>
+            <input type="text" id="name" placeholder="أدخل اسمك" required />
+          </div>
+
+          <div class="form-group">
+            <label for="phone">رقم الموبايل</label>
+            <input type="tel" id="phone" placeholder="01xxxxxxxxx" required />
+            <span class="error-msg" id="signupPhoneError"></span>
+          </div>
+
+          <div class="form-group">
+            <label for="branch">النظام التعليمي</label>
+            <select id="branch" required>
+              <option value="عام">عام 🎓</option>
+              <option value="أزهر">أزهر 🕌</option>
+            </select>
+            <span
+              class="small-text"
+              style="display: block; margin-top: 6px; color: gray"
+              >سيتم استخدام هذا النظام لتحديد المحتوى المناسب لك داخل
+              المنصة.</span
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="email">البريد الإلكتروني</label>
+            <input
+              type="email"
+              id="email"
+              placeholder="example@mail.com"
+              required
+            />
+            <span class="error-msg" id="signupEmailError"></span>
+          </div>
+
+          <div class="form-group">
+            <label for="otpCode">رمز التحقق المرسل إلى بريدك</label>
+            <div style="display: flex; gap: 8px">
+              <input
+                type="text"
+                id="otpCode"
+                placeholder="6 أرقام"
+                style="flex: 1"
+              />
+              <button
+                type="button"
+                class="btn-outline"
+                id="sendOtpBtn"
+                style="white-space: nowrap"
+              >
+                إرسال الرمز 📨
+              </button>
+            </div>
+            <span class="error-msg" id="otpError"></span>
+          </div>
+
+          <div class="form-group">
+            <label for="password">كلمة السر</label>
+            <input
+              type="password"
+              id="password"
+              placeholder="أدخل كلمة السر"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="confirmPassword">تأكيد كلمة السر</label>
+            <input
+              type="password"
+              id="confirmPassword"
+              placeholder="أعد كتابة كلمة السر"
+              required
+            />
+            <span class="error-msg" id="passwordConfirmError"></span>
+          </div>
+
+          <button type="submit" class="btn-main">سجل الآن</button>
+          <p class="small-text">
+            عندك حساب بالفعل؟ <a href="login.html">سجل دخول</a>
+          </p>
+        </form>
+      </div>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>

@@ -1287,6 +1287,53 @@ async function extractTextFromImageWithAI(filePath) {
   }
 }
 
+// إصلاح ترتيب النص العربي المستخرج من ملفات PDF، واللي أحياناً بييجي معكوس
+// أو مبعثر بسبب طريقة تخزين بعض ملفات الـ PDF للنص العربي (مشكلة معروفة في
+// أغلب مكتبات قراءة PDF مع النصوص من اليمين لليسار). بنستخدم الذكاء
+// الاصطناعي لإعادة بناء النص بترتيبه الصحيح بدل تخمين قواعد ثابتة قد
+// تفشل مع حالات مختلفة.
+async function repairArabicPdfText(rawText) {
+  const apiKey = normalizeText(process.env.AI_API_KEY || process.env.OPENAI_API_KEY);
+  const aiBase = normalizeText(process.env.OPENAI_API_BASE || "https://api.openai.com/v1").replace(/\/$/, "");
+  const aiUrl = normalizeText(process.env.AI_API_URL || (apiKey ? `${aiBase}/chat/completions` : ""));
+  // لو معندناش مفتاح ذكاء اصطناعي، رجّع النص الخام كما هو (أفضل من لا شيء)
+  if (!apiKey || !aiUrl || !rawText || !rawText.trim()) return rawText;
+
+  try {
+    const payload = {
+      model: process.env.AI_MODEL || "gpt-5-mini",
+      messages: [
+        {
+          role: "user",
+          content:
+            "النص التالي مستخرج آلياً من ملف PDF عربي، وقد يكون ترتيب الحروف أو " +
+            "الكلمات معكوساً أو مبعثراً بسبب مشكلة تقنية شائعة في استخراج النص " +
+            "العربي من ملفات PDF. أعد بناء النص بالترتيب الصحيح والمقروء بالعربية " +
+            "الفصحى دون تغيير المعنى أو حذف أي محتوى (حافظ على كل الأسئلة والاختيارات " +
+            "والأرقام كما هي، فقط أصلح ترتيب القراءة). إذا كان النص سليماً بالفعل، " +
+            "أعده كما هو دون أي تغيير. لا تضف أي مقدمة أو تعليق، أعد النص المُصلح فقط:\n\n" +
+            rawText.slice(0, 12000),
+        },
+      ],
+      temperature: 0,
+      max_tokens: 4000,
+    };
+    const data = await callAICompletion(aiUrl, apiKey, payload);
+    const fixed = data?.choices?.[0]?.message?.content;
+    return fixed && fixed.trim() ? fixed : rawText;
+  } catch (err) {
+    console.log("تعذر إصلاح ترتيب نص PDF العربي:", err.message);
+    return rawText;
+  }
+}
+
+// فحص سريع: هل النص فيه عربي بشكل كافٍ يستاهل نمرّ عليه بخطوة الإصلاح؟
+// (تجنباً لاستدعاء الذكاء الاصطناعي بلا داعٍ على ملفات إنجليزية بالكامل)
+function looksLikeArabic(text) {
+  const arabicChars = (text.match(/[\u0600-\u06FF]/g) || []).length;
+  return arabicChars > 20;
+}
+
 async function extractTextFromFile(filePath, originalName) {
   const ext = path.extname(originalName || "").toLowerCase();
   if (ext === ".txt") {
@@ -1299,7 +1346,11 @@ async function extractTextFromFile(filePath, originalName) {
   if (ext === ".pdf") {
     const data = await pdfParse(await fs.promises.readFile(filePath));
     const extractedText = data.text || "";
-    return extractedText.trim() ? extractedText : extractPdfTextWithOCR(filePath);
+    if (!extractedText.trim()) return extractPdfTextWithOCR(filePath);
+    // لو النص فيه عربي، نمرّ عليه بخطوة إصلاح الترتيب أولاً
+    return looksLikeArabic(extractedText)
+      ? repairArabicPdfText(extractedText)
+      : extractedText;
   }
   if ([".png", ".jpg", ".jpeg", ".webp"].includes(ext)) {
     // المحاولة الأولى: قراءة الصورة بالذكاء الاصطناعي (أسرع وأثبت في السيرفرات اللحظية)
@@ -1366,16 +1417,19 @@ app.post(
           .json({ success: false, message: "يرجى رفع ملف مصدر واحد على الأقل" });
       }
 
-      // استخراج النص من كل الملفات المرفوعة ودمجها في نص واحد
-      let combinedText = "";
-      for (const file of req.files) {
-        try {
-          const text = await extractTextFromFile(file.path, file.originalname);
-          combinedText += "\n" + (text || "");
-        } catch (e) {
-          console.log("تعذر استخراج نص من ملف:", file.originalname, e);
-        }
-      }
+      // استخراج النص من كل الملفات المرفوعة بالتوازي (أسرع بكتير من التتابع،
+      // ومهم عشان منتجاوزش الوقت المسموح للسيرفر لو رفع أكتر من ملف)
+      const extractedParts = await Promise.all(
+        req.files.map(async (file) => {
+          try {
+            return await extractTextFromFile(file.path, file.originalname);
+          } catch (e) {
+            console.log("تعذر استخراج نص من ملف:", file.originalname, e);
+            return "";
+          }
+        }),
+      );
+      const combinedText = extractedParts.join("\n");
       const cleanedText = combinedText.replace(/\s+/g, " ").trim();
 
       if (!cleanedText) {
@@ -1654,18 +1708,21 @@ app.post(
           });
       }
 
-      let combinedText = "";
-      for (const file of req.files) {
-        try {
-          const text = await extractTextFromFile(file.path, file.originalname);
-          combinedText += "\n" + (text || "");
-        } catch (e) {
-          console.log("تعذر استخراج نص من ملف:", file.originalname, e);
-        } finally {
-          // تنظيف الملف المؤقت بعد الاستخراج
-          fs.unlink(file.path, () => {});
-        }
-      }
+      // استخراج النص من كل الملفات بالتوازي (أسرع، ومهم لتفادي تجاوز
+      // الوقت المسموح للسيرفر عند رفع أكتر من ملف/صورة)
+      const examExtractedParts = await Promise.all(
+        req.files.map(async (file) => {
+          try {
+            return await extractTextFromFile(file.path, file.originalname);
+          } catch (e) {
+            console.log("تعذر استخراج نص من ملف:", file.originalname, e);
+            return "";
+          } finally {
+            fs.unlink(file.path, () => {});
+          }
+        }),
+      );
+      const combinedText = examExtractedParts.join("\n");
       combinedText = combinedText.trim();
 
       if (!combinedText) {
