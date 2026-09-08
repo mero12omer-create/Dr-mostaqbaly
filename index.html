@@ -3,157 +3,66 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>دكتور مستقبلي 🩺 - المنصة التعليمية الأولى للثانوية العامة</title>
+  <meta name="theme-color" content="#0d9488">
+  <title>مخططي الدراسي | دكتور مستقبلي</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="planner.css">
 </head>
-<body>
-
-<header class="fixed-header">
-  <div class="navbar">
-    <h2 class="logo">دكتور مستقبلي 🩺</h2>
-<button class="icon-btn" onclick="toggleSearch()">🔍</button>
-
-<div id="searchBox" style="display: none; width: 100%; margin-top: 15px; padding: 15px; background: var(--card-bg, #fff); border: 1px solid var(--border, #ccc); border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); box-sizing: border-box;">
-  <input type="text" id="searchInput" onkeyup="doSearch()" placeholder="🔍 اكتب اسم الدرس أو المذكرة للبحث..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border, #ccc); background: var(--bg, #fff); color: var(--text, #000); font-family: inherit; font-size: 14px; box-sizing: border-box; outline: none;">
-  <div id="searchResults" style="margin-top: 10px; max-height: 200px; overflow-y: auto;"></div>
-</div>
-      <button class="icon-btn" id="themeToggle" title="تغيير المظهر">🌙</button>
-      <button class="icon-btn" id="menuBtn" title="القائمة">
-        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 12h18M3 6h18M3 18h18"/>
-        </svg>
-      </button>
-<a href="profile.html" class="icon-btn" id="profileLink" title="الملف الشخصي">👤</a>
-    </div>
-  </div>
-
-  <div class="search-bar" id="searchBar">
-    <input type="text" placeholder="ابحث عن مذكرة، امتحان، مادة...">
-    <button>بحث</button>
-  </div>
-
-  <nav class="dropdown-menu" id="navLinks">
-    <a href="index.html">الرئيسية</a>
-    <a href="notes.html">📚 المذكرات</a>
-    <a href="exams.html">📝 الامتحانات</a>
-    <a href="leaderboard.html">🏆 الصدارة</a>
-    <a href="chat.html">🤖 الشات بوت AI</a>
-    <a href="profile.html">الملف الشخصي</a>
-    <a href="#contact">📞 تواصل معنا</a>
-  </nav>
-</header>
-
-<main class="container">
-
-  <section class="hero-section">
-    <div class="hero-badge">🩺 طريقك للتفوق في الثانوية العامة</div>
-    <h1>مرحباً بك في منصة <br><span>دكتور مستقبلي</span> 👋</h1>
-    <p>منصتك الشاملة للمذاكرة الذكية! امتحانات تفاعلية بالنظام الجديد، مذكرات ملخصة، شات بوت ذكاء اصطناعي يشرحلك، ولوحة صدارة تنافس فيها أصحابك.</p>
-    <div id="branchInfoBox" style="margin: 16px 0 10px; padding: 12px 14px; background: rgba(37, 99, 235, 0.08); border: 1px solid rgba(37, 99, 235, 0.2); border-radius: 12px; color: var(--text); display: inline-block;">
-      النظام الحالي: <strong id="branchInfoText">عام</strong>
-    </div>
-    <div style="margin: 10px 0 18px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
-      <label for="homeBranchSelect" style="font-weight: 700; color: var(--text);">اختر نظامك:</label>
-      <select id="homeBranchSelect" style="padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border, #ccc); background: var(--card-bg, #fff); color: var(--text); font-family: inherit; min-width: 150px;">
-        <option value="عام">عام</option>
-        <option value="أزهر">أزهر</option>
-      </select>
-    </div>
-    <div class="hero-btns">
-     <a href="signup.html" class="btn-start-now">ابدأ الآن مجاناً 🚀</a>
-      <a href="exams.html" class="btn-outline">جرب الامتحانات 📝</a>
-    </div>
-  </section>
-<div id="winBanner" class="win-banner" style="display: none;">
-    <div class="win-content">
-        <span class="win-icon">🎉</span>
-        <p id="winMessage">مبروك يا دكتور! فزت بلقب جديد وشهادة تقدير!</p>
-        <button onclick="viewCertificate()" class="win-btn">استلم الشهادة 📜</button>
-        <button onclick="closeBanner()" class="close-banner">✕</button>
-    </div>
-</div>
-  <section class="main-cards-section">
-    <h2 class="section-title">أهم مميزات المنصة 🌟</h2>
-    <div class="cards-grid-4">
-      
-      <a href="notes.html" class="card-item">
-        <div class="card-icon">📚</div>
-        <h3>المذكرات والملخصات</h3>
-        <p>أقوى المذكرات والملخصات الشاملة لكل المواد بصيغة PDF جاهزة للتحميل.</p>
-        <span class="card-link">تصفح المذكرات ⟵</span>
-      </a>
-
-      <a href="exams.html" class="card-item">
-        <div class="card-icon">📝</div>
-        <h3>بنك الأسئلة والامتحانات</h3>
-        <p>أسئلة النظام الجديد والعد التنازلي مع تقييم فورى وحساب النقاط.</p>
-        <span class="card-link">ابدأ الامتحان ⟵</span>
-      </a>
-
-      <a href="chat.html" class="card-item">
-        <div class="card-icon">🤖</div>
-        <h3>المعلم الذكي (AI)</h3>
-        <p>مساعدك الشخصي لشرح دروسك والإجابة عن أسئلتك في المواد المختلفة طوال اليوم.</p>
-        <span class="card-link">اسأل المعلم ⟵</span>
-      </a>
-
-      <a href="leaderboard.html" class="card-item">
-        <div class="card-icon">🏆</div>
-        <h3>لوحة الصدارة والجوائز</h3>
-        <p>اجمع النقاط من حل الأسئلة واطلع الأوائل على مستوى الجمهورية واحصل على شهادتك.</p>
-        <span class="card-link">عرض الترتيب ⟵</span>
-      </a>
-
-    </div>
-  </section>
-
-</main>
-
-<footer class="main-footer" id="contact">
-  <div class="footer-container">
-    <div class="footer-info">
-      <h3>دكتور مستقبلي 🩺</h3>
-      <p>هدفنا مساعدة كل طالب ثانوية عامة للوصول لحلمه بأحدث الأساليب والتقنيات الذكية.</p>
-    </div>
-
-    <div class="footer-links">
-      <h4>روابط سريعة</h4>
-      <ul>
-        <li><a href="index.html">الرئيسية</a></li>
-        <li><a href="notes.html">المذكرات</a></li>
-        <li><a href="exams.html">الامتحانات</a></li>
-        <li><a href="chat.html">الشات بوت AI</a></li>
-      </ul>
-    </div>
-
-<div class="contact-section" style="background: var(--card-bg, #fff); border: 1px solid var(--border, #ccc); border-radius: 16px; padding: 25px; margin: 30px 0; text-align: center;">
-  <h3 style="margin-bottom: 8px;">📞 تواصل مع دكتور مستقبلي</h3>
-  <p style="color: gray; font-size: 14px; margin-bottom: 20px;">نحن هنا لمساعدتك في أي استفسار أو مشكلة</p>
-  
-  <div class="contact-links" style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;">
-    
-    <a href="https://wa.me/201278070208" target="_blank" class="btn-contact" style="background: #25D366; color: white; padding: 10px 18px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 14px;">
-      💬 واتساب
+<body class="planner-page">
+  <header class="planner-header">
+    <a class="brand" href="index.html" aria-label="العودة للرئيسية">
+      <span class="brand-mark">د</span>
+      <span><strong>دكتور مستقبلي</strong><small>مخطط الأسبوع</small></span>
     </a>
-
-    <a href="tel:01278070208" class="btn-contact" style="background: #2563eb; color: white; padding: 10px 18px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 14px;">
-      📞 اتصل بنا
-    </a>
-
-    <a href="https://www.tiktok.com/@omar.jaber101" target="_blank" class="btn-contact" style="background: #000000; color: white; padding: 10px 18px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 14px;">
-      🎵 TikTok
-    </a>
-
-  </div>
-</div>
+    <div class="header-actions">
+      <button class="header-icon" id="themeToggle" title="تغيير المظهر" aria-label="تغيير المظهر">☼</button>
+      <a class="profile-chip" href="profile.html" title="الملف الشخصي"><span>م</span><b>ملفي</b></a>
     </div>
-  </div>
-  <div class="footer-bottom">
-    <p>جميع الحقوق محفوظة © 2026 لمنصة <strong>دكتور مستقبلي</strong> 🩺</p>
-  </div>
-</footer>
+  </header>
 
-<script src="script.js"></script>
+  <main class="planner-shell">
+    <section class="welcome-grid">
+      <div class="welcome-copy">
+        <div class="eyebrow"><span class="eyebrow-dot"></span> لوحة التحكم الدراسية</div>
+        <h1>أهلاً يا <span id="studentName">طالب</span>،<br><em>جاهز تنجز يومك؟</em></h1>
+        <p>خليك مركز في خطوة واحدة كل مرة. جدولك مرتب، وهدفك واضح.</p>
+        <div class="today-line"><span class="live-dot"></span><span id="fullDate">اليوم، ٨ سبتمبر ٢٠٢٦</span><span class="date-separator">•</span><strong id="currentTime">--:--</strong></div>
+      </div>
+      <div class="focus-card">
+        <div class="focus-card-top"><span>الآن</span><span class="focus-status">مخطط اليوم</span></div>
+        <div class="focus-icon" id="currentIcon">✦</div>
+        <div class="focus-label" id="currentLabel">استعد ليومك</div>
+        <h2 id="currentTask">راجع جدولك وابدأ بهدوء</h2>
+        <p id="currentHint">ستظهر مهمتك الحالية هنا تلقائياً حسب الوقت.</p>
+        <div class="focus-progress"><span id="timeProgress"></span></div>
+        <div class="focus-meta"><span id="nextTask">المهمة القادمة: —</span><span id="nextTime">—</span></div>
+      </div>
+    </section>
 
+    <section class="stats-row" aria-label="ملخص الإنجاز">
+      <div class="stat-card"><span class="stat-icon teal">✓</span><div><small>المهام المكتملة</small><strong id="completedCount">٠ / ١٠</strong></div></div>
+      <div class="stat-card"><span class="stat-icon orange">◷</span><div><small>ساعات التركيز</small><strong>١٢ ساعة</strong></div></div>
+      <div class="stat-card"><span class="stat-icon purple">↗</span><div><small>إنجاز الأسبوع</small><strong id="completionPercent">٠٪</strong></div></div>
+      <div class="quote-card"><span>“</span><p>الإنجاز الصغير كل يوم<br><b>يصنع فرقاً كبيراً.</b></p></div>
+    </section>
+
+    <section class="section-heading">
+      <div><p class="section-kicker">روتينك الأسبوعي</p><h2>جدول الأسبوع</h2></div>
+      <div class="legend"><span><i class="legend-dot teal-dot"></i> مذاكرة</span><span><i class="legend-dot blue-dot"></i> درس / مدرسة</span><span><i class="legend-dot gray-dot"></i> مرن</span></div>
+    </section>
+
+    <section class="week-board" id="weekBoard" aria-label="جدول الأسبوع"></section>
+
+    <section class="bottom-grid">
+      <div class="notice-card"><div class="notice-symbol">↳</div><div><h3>ملاحظة الأسبوع</h3><p>الأربعاء يوم مرن لتسليم واجب العربي، مراجعة المتأخرات، أو أخذ راحة مستحقة.</p></div></div>
+      <div class="quick-card"><div><p class="section-kicker">ماذا بعد؟</p><h3 id="quickTitle">اختار مهمة وابدأ</h3></div><button id="resetTasks" class="text-button">تصفير الإنجاز ↺</button></div>
+    </section>
+  </main>
+  <footer class="planner-footer"><span>دكتور مستقبلي</span><span>خطوة كل يوم نحو حلمك</span></footer>
+  <script src="script.js"></script>
+  <script src="planner.js"></script>
 </body>
 </html>
