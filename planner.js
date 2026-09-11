@@ -18,8 +18,11 @@ const dayKeys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 const arabicDigits = (value) => String(value).replace(/[0-9]/g, (d) => "٠١٢٣٤٥٦٧٨٩"[d]);
 const getTodayKey = () => dayKeys[new Date().getDay()];
 const storageKey = "plannerCompletedTasks";
+const postponedKey = "plannerPostponedTasks";
 const getCompleted = () => JSON.parse(localStorage.getItem(storageKey) || "[]");
 const saveCompleted = (items) => localStorage.setItem(storageKey, JSON.stringify(items));
+const getPostponed = () => JSON.parse(localStorage.getItem(postponedKey) || "[]");
+const savePostponed = (items) => localStorage.setItem(postponedKey, JSON.stringify(items));
 const weekDayDate = (dayKey) => {
   const now = new Date();
   const dayOrder = { sat: 0, sun: 1, mon: 2, tue: 3, wed: 4, thu: 5, fri: 6 };
@@ -31,15 +34,19 @@ const weekDayDate = (dayKey) => {
 
 function renderWeek() {
   const board = document.getElementById("weekBoard"); if (!board) return;
-  const today = getTodayKey(); const completed = getCompleted();
+  const today = getTodayKey(); const completed = getCompleted(); const postponed = getPostponed();
   board.innerHTML = weeklyPlan.map((day) => {
     const isToday = day.key === today;
-    const tasks = day.tasks.map((task) => task.id ? `<article class="task ${task.type} ${completed.includes(task.id) ? "done" : ""}" data-task-id="${task.id}" role="button" tabindex="0" aria-label="تحديد ${task.title} كمكتملة"><span class="task-time">${task.time}</span><span class="task-title">${task.title}</span><span class="task-note">${task.note}</span></article>` : `<article class="task ${task.type}"><span class="task-time">${task.time}</span><span class="task-title">${task.title}</span><span class="task-note">${task.note}</span></article>`).join("");
+    const tasks = day.tasks.map((task) => task.id ? `<article class="task ${task.type} ${completed.includes(task.id) ? "done" : ""} ${postponed.includes(task.id) ? "postponed" : ""}" data-task-id="${task.id}"><span class="task-time">${task.time}</span><span class="task-title">${task.title}</span><span class="task-note">${postponed.includes(task.id) ? "مؤجلة لبكرة" : task.note}</span><div class="task-actions"><button class="task-done" data-action="done" type="button">✓ تمت</button><button class="task-delay" data-action="delay" type="button">↷ بكرة</button></div></article>` : `<article class="task ${task.type}"><span class="task-time">${task.time}</span><span class="task-title">${task.title}</span><span class="task-note">${task.note}</span></article>`).join("");
     return `<section class="day-column ${isToday ? "current" : ""}"><header class="day-head"><span class="day-name">${day.name}</span><span class="day-date">${weekDayDate(day.key)}</span>${isToday ? '<span class="today-pill">اليوم</span>' : ""}</header>${tasks}</section>`;
   }).join("");
   board.querySelectorAll("[data-task-id]").forEach((task) => {
-    const toggle = () => { const id = task.dataset.taskId; const done = getCompleted(); const next = done.includes(id) ? done.filter((item) => item !== id) : [...done, id]; saveCompleted(next); task.classList.toggle("done", next.includes(id)); updateStats(); };
-    task.addEventListener("click", toggle); task.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggle(); } });
+    task.querySelectorAll("[data-action]").forEach((button) => button.addEventListener("click", () => {
+      const id = task.dataset.taskId; const action = button.dataset.action;
+      const done = getCompleted().filter((item) => item !== id); const delayed = getPostponed().filter((item) => item !== id);
+      if (action === "done") done.push(id); else delayed.push(id);
+      saveCompleted(done); savePostponed(delayed); renderWeek(); updateStats();
+    }));
   });
 }
 
@@ -49,6 +56,7 @@ function updateStats() {
   const percent = allTasks.length ? Math.round((completed / allTasks.length) * 100) : 0;
   document.getElementById("completedCount").textContent = `${arabicDigits(completed)} / ${arabicDigits(allTasks.length)}`;
   document.getElementById("completionPercent").textContent = `${arabicDigits(percent)}٪`;
+  const progressBar = document.getElementById("weeklyProgressBar"); if (progressBar) progressBar.style.width = `${percent}%`;
 }
 function updateClock() {
   const now = new Date();
@@ -74,5 +82,5 @@ function updateFocus() {
 document.addEventListener("DOMContentLoaded", () => {
   const name = localStorage.getItem("userName"); if (name) document.getElementById("studentName").textContent = name.split(" ")[0];
   renderWeek(); updateStats(); updateClock(); updateFocus(); setInterval(() => { updateClock(); updateFocus(); }, 30000);
-  document.getElementById("resetTasks")?.addEventListener("click", () => { saveCompleted([]); renderWeek(); updateStats(); });
+  document.getElementById("resetTasks")?.addEventListener("click", () => { saveCompleted([]); savePostponed([]); renderWeek(); updateStats(); });
 });
