@@ -11,7 +11,7 @@ const weeklyPlan = [
   { key: "tue", name: "الثلاثاء", tasks: [...schoolRoutine, { time: "خلال اليوم", title: "تاريخ", note: "مذاكرة المادة", type: "teal", id: "tue-history" }, { time: "بعد المذاكرة", title: "حل التدريبات", note: "الأجزاء المحتاجة حل", type: "teal", id: "tue-practice" }, { time: "وقت إضافي", title: "إنجليزي", note: "مراجعة قصيرة إذا كنت فاضي", type: "teal", id: "tue-english" }, sleepRoutine] },
   { key: "wed", name: "الأربعاء", tasks: [...schoolRoutine, { time: "مهمة اليوم", title: "تسليم واجب العربي", note: "موعد التسليم", type: "orange", id: "wed-arabic" }, { time: "وقت مرن", title: "مراجعة أو راحة", note: "حسب احتياجك", type: "gray", id: "wed-flex" }, sleepRoutine] },
   { key: "thu", name: "الخميس", tasks: [...schoolRoutine, { time: "خلال اليوم", title: "إنجليزي", note: "مذاكرة المادة", type: "teal", id: "thu-english" }, { time: "٩:٠٠ م", title: "درس إنجليزي", note: "راجع الدرس بعده بخفة", type: "blue", id: "thu-english-class" }, sleepRoutine] },
-  { key: "fri", name: "الجمعة", tasks: [{ time: "وقت مرن", title: "مراجعة أو خروج", note: "يوم مفتوح", type: "gray", id: "fri-flex" }, { time: "وقت مناسب", title: "إنجليزي", note: "مذاكرة أساسية أو تعويض", type: "teal", id: "fri-english" }, sleepRoutine] }
+  { key: "fri", name: "الجمعة", tasks: [{ time: "٢:٠٠ – ٤:٠٠", title: "إنجليزي — مهمة أساسية", note: "مذاكرة إجبارية", type: "teal", id: "fri-english" }, { time: "بعد ٤:٠٠", title: "مراجعة أو خروج", note: "وقت راحة مفتوح", type: "gray", id: "fri-flex" }, sleepRoutine] }
 ];
 
 const dayKeys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
