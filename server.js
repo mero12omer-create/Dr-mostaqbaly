@@ -1366,25 +1366,73 @@ async function extractTextFromFile(filePath, originalName) {
   return "";
 }
 
-app.post("/api/notes", requireAdmin, (req, res) => {
-  const noteBranch = normalizeBranch(req.body.branch);
-  const subjectKey = normalizeSubjectKey(req.body.subjectKey);
-  const subjectName = getSubjectLabel(subjectKey, noteBranch, req.body.subjectName);
-  const subjectGroup = getSubjectGroup(subjectKey, noteBranch);
-  const { title, size, fileUrl } = req.body;
-  const ownerName = normalizeText(req.body.ownerName || "دكتور مستقبلي");
-  db.run(
-    `INSERT INTO notes (title, subjectKey, subjectName, subjectGroup, ownerName, size, fileUrl, branch) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [title, subjectKey, subjectName, subjectGroup, ownerName, size, fileUrl, noteBranch],
-    function (err) {
-      if (err) {
-        return res
-          .status(500)
-          .json({ success: false, message: "خطأ في حفظ المذكرة" });
+app.post("/api/notes", requireAdmin, upload.single("file"), async (req, res) => {
+  try {
+    const noteBranch = normalizeBranch(req.body.branch);
+    const subjectKey = normalizeSubjectKey(req.body.subjectKey);
+    const subjectName = getSubjectLabel(subjectKey, noteBranch, req.body.subjectName);
+    const subjectGroup = getSubjectGroup(subjectKey, noteBranch);
+    const title = normalizeText(req.body.title);
+    const ownerName = normalizeText(req.body.ownerName || "دكتور مستقبلي");
+
+    // رابط خارجي مباشر (اختياري) بدل رفع ملف
+    const externalUrl = normalizeText(req.body.externalUrl || "");
+
+    let fileUrl = null;
+    let size = normalizeText(req.body.size || "");
+
+    if (req.file) {
+      // تم رفع ملف فعلي (PDF/DOCX/صورة) → يترفع على Supabase Storage فورًا وينشُر مباشرة
+      fileUrl = await uploadLocalFileToStorage(
+        req.file.path,
+        req.file.originalname || "مذكرة.pdf",
+      );
+      if (!size) {
+        size = req.file.size > 0
+          ? `${(req.file.size / (1024 * 1024)).toFixed(2)} MB`
+          : "غير معروف";
       }
-      res.status(200).json({ success: true, id: this.lastID });
-    },
-  );
+      fs.unlink(req.file.path, () => {});
+    } else if (externalUrl && /^https?:\/\//i.test(externalUrl)) {
+      fileUrl = externalUrl;
+    }
+
+    if (!title) {
+      return res
+        .status(400)
+        .json({ success: false, message: "عنوان المذكرة مطلوب" });
+    }
+    if (!fileUrl) {
+      return res.status(400).json({
+        success: false,
+        message: "يرجى رفع ملف المذكرة أو إدخال رابط مباشر صحيح",
+      });
+    }
+
+    // المذكرة تُنشر فورًا (isDraft = 0) وبتظهر للطلاب مباشرة
+    db.run(
+      `INSERT INTO notes (title, subjectKey, subjectName, subjectGroup, ownerName, size, fileUrl, branch, isDraft) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+      [title, subjectKey, subjectName, subjectGroup, ownerName, size, fileUrl, noteBranch],
+      function (err) {
+        if (err) {
+          return res
+            .status(500)
+            .json({ success: false, message: "خطأ في حفظ المذكرة" });
+        }
+        res.status(200).json({
+          success: true,
+          id: this.lastID,
+          message: "تم رفع المذكرة ونشرها للطلاب بنجاح ✅",
+        });
+      },
+    );
+  } catch (error) {
+    console.log("خطأ في رفع المذكرة:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "تعذر رفع المذكرة. تأكد من إعداد SUPABASE_URL وSUPABASE_SERVICE_KEY",
+    });
+  }
 });
 
 app.post(

@@ -90,6 +90,7 @@
           generateAIDraftBtn: "generateAIDraft",
           approveDraftBtn: "approveDraft",
           refreshNotesBtn: "loadNotes",
+          uploadManualNoteBtn: "uploadManualNote",
           resetAllBtn: "resetAll",
         };
         Object.keys(idFnMap).forEach(function (btnId) {
@@ -493,7 +494,67 @@
           <div class="note-manager">
             <div class="note-manager-layout">
               <div class="note-panel">
+                <h3>📤 رفع مذكرة جاهزة (PDF / DOCX / صورة)</h3>
+                <p style="font-size: 12px; color: gray; line-height: 1.8; margin: 0 0 10px">
+                  ارفع المذكرة الجاهزة من جهازك وهتتنشر للطلاب فورًا من غير
+                  أي اعتماد إضافي. (الأفضل ليك: حضر المذكرة بنفسك وارفعها هنا)
+                </p>
+                <div class="form-group">
+                  <label>الفرع:</label>
+                  <select id="manualNoteBranch">
+                    <option value="عام">عام 🎓</option>
+                    <option value="أزهر">أزهر 🕌</option>
+                    <option value="مشترك">مشترك 🔄</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>اختر المادة:</label>
+                  <select id="manualNoteSubSelect"></select>
+                </div>
+                <div class="form-group">
+                  <label>عنوان المذكرة:</label>
+                  <input
+                    type="text"
+                    id="manualNoteTitle"
+                    placeholder="مثال: ملخص النحو - ملزمة الأستاذ"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>اسم صاحب المذكرة (اختياري):</label>
+                  <input
+                    type="text"
+                    id="manualNoteOwner"
+                    placeholder="مثال: أ/ محمد أحمد"
+                    maxlength="120"
+                  />
+                </div>
+                <div class="form-group">
+                  <label>اختر ملف المذكرة (PDF / DOCX / صورة):</label>
+                  <input
+                    type="file"
+                    id="manualNoteFile"
+                    accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.webp"
+                  />
+                  <small style="color: #94a3b8; display: block; margin-top: 4px"
+                    >أو الصق رابط مباشر للملف بدل الرفع:</small
+                  >
+                  <input
+                    type="text"
+                    id="manualNoteUrl"
+                    placeholder="https://example.com/file.pdf"
+                  />
+                </div>
+                <button id="uploadManualNoteBtn" class="btn-main">
+                  رفع المذكرة ونشرها 🚀
+                </button>
+              </div>
+
+              <div class="note-panel">
                 <h3>إنشاء مذكرة بالذكاء الاصطناعي 📚🤖</h3>
+                <p style="font-size: 12px; color: gray; line-height: 1.8; margin: 0 0 10px">
+                  (اختياري) ارفع مصدر ويستخرج الذكاء الاصطناعي محتوى المذكرة
+                  كمسودة تراجعها وتنشرها بعدين.
+                </p>
                 <div class="form-group">
                   <label>اختر المادة:</label>
                   <select id="noteSubSelect"></select>
@@ -768,15 +829,85 @@
         const exBranch = document.getElementById("examBranch");
         const ntBranch = document.getElementById("noteBranch");
         const aiBranch = document.getElementById("aiExamBranch");
+        const mnSel = document.getElementById("manualNoteSubSelect");
+        const mnBranch = document.getElementById("manualNoteBranch");
         const sync = () => {
           fillSubjectSelect(exSel, exBranch?.value || "عام", exSel?.value);
           fillSubjectSelect(ntSel, ntBranch?.value || "عام", ntSel?.value);
           fillSubjectSelect(aiSel, aiBranch?.value || "عام", aiSel?.value);
+          fillSubjectSelect(mnSel, mnBranch?.value || "عام", mnSel?.value);
           updateNotePreview();
         };
-        [exBranch, ntBranch, aiBranch].forEach((select) => select?.addEventListener("change", sync));
+        [exBranch, ntBranch, aiBranch, mnBranch].forEach((select) => select?.addEventListener("change", sync));
         sync();
         bindNotePreview();
+      }
+
+      // ========================================
+      // رفع مذكرة جاهزة يدويًا (بدون ذكاء اصطناعي) — النشر الفوري للطلاب
+      // ========================================
+      async function uploadManualNote() {
+        const branch = document.getElementById("manualNoteBranch")?.value || "عام";
+        const subjectKey = document.getElementById("manualNoteSubSelect")?.value;
+        const title = document.getElementById("manualNoteTitle").value.trim();
+        const owner = document.getElementById("manualNoteOwner").value.trim();
+        const fileInput = document.getElementById("manualNoteFile");
+        const externalUrl = document.getElementById("manualNoteUrl").value.trim();
+
+        if (!title) return alert("أدخل عنوان المذكرة أولًا");
+        if (!subjectKey) return alert("اختر المادة أولًا");
+
+        const hasFile = fileInput && fileInput.files && fileInput.files.length > 0;
+        if (!hasFile && !externalUrl) {
+          return alert("ارفع ملف المذكرة أو الصق رابط مباشر للملف");
+        }
+
+        const formData = new FormData();
+        formData.append("title", title);
+        formData.append("subjectKey", subjectKey);
+        formData.append("subjectName", SUBJECTS[subjectKey] || subjectKey);
+        formData.append("branch", branch);
+        formData.append("ownerName", owner || "دكتور مستقبلي");
+        if (externalUrl) formData.append("externalUrl", externalUrl);
+        if (hasFile) {
+          formData.append("file", fileInput.files[0]);
+        }
+
+        const btn = document.getElementById("uploadManualNoteBtn");
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = "جاري الرفع والنشر... ⏳";
+        }
+        showBanner("⬆️ جاري رفع المذكرة إلى التخزين...");
+
+        try {
+          const res = await fetch("/api/notes", {
+            method: "POST",
+            headers: { "x-admin-token": adminToken },
+            body: formData,
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            alert(data.message || "تعذر رفع المذكرة");
+            return;
+          }
+          showBanner("✅ " + (data.message || "تم رفع المذكرة ونشرها"));
+          alert("تم رفع المذكرة ونشرها للطلاب بنجاح ✅");
+          // تفريغ الحقول بعد الرفع الناجح
+          document.getElementById("manualNoteTitle").value = "";
+          document.getElementById("manualNoteOwner").value = "";
+          document.getElementById("manualNoteUrl").value = "";
+          if (fileInput) fileInput.value = "";
+          loadNotes();
+        } catch (err) {
+          showBanner("❌ فشل الرفع: " + (err && err.message ? err.message : err));
+          alert("تعذر رفع المذكرة بسبب مشكلة في السيرفر");
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = "رفع المذكرة ونشرها 🚀";
+          }
+        }
       }
 
       // ========================================
