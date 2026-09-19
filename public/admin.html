@@ -399,6 +399,17 @@
               multiple
             />
           </div>
+          <div class="form-group">
+            <label>أو الصق نص الأسئلة هنا مباشرةً (أسرع وأدق الطرق):</label>
+            <textarea
+              id="pastedExamText"
+              rows="7"
+              placeholder="الصق الأسئلة هنا مثل:&#10;1) ما عاصمة مصر؟&#10;أ- القاهرة&#10;ب- الإسكندرية ✔&#10;ج- أسوان&#10;د- المنصورة"
+            ></textarea>
+            <small style="color: #94a3b8; display: block; margin-top: 4px"
+              >لو حطيت نص هنا، هيتحلل فورًا من غير ما يحتاج ملف أو AI.</small
+            >
+          </div>
           <button id="generateExamBtn" class="btn-main">
             استخراج الأسئلة ✨
           </button>
@@ -922,11 +933,17 @@
           .getElementById("aiLessonTitle")
           .value.trim();
         const filesInput = document.getElementById("aiExamFiles");
+        const pastedText = document
+          .getElementById("pastedExamText")
+          .value.trim();
         const statusBox = document.getElementById("aiExamStatus");
 
         if (!lessonTitle) return alert("أدخل اسم الدرس أولاً");
-        if (!filesInput.files || filesInput.files.length === 0) {
-          return alert("ارفع صورة أو ملف أسئلة أولاً");
+        if (
+          (!filesInput.files || filesInput.files.length === 0) &&
+          !pastedText
+        ) {
+          return alert("ارفع صورة/ملف أسئلة أو الصق نص الأسئلة");
         }
 
         const formData = new FormData();
@@ -934,7 +951,8 @@
         formData.append("subjectName", SUBJECTS[subjectKey]);
         formData.append("branch", branch);
         formData.append("lessonTitle", lessonTitle);
-        Array.from(filesInput.files).forEach((f) =>
+        if (pastedText) formData.append("text", pastedText);
+        Array.from(filesInput.files || []).forEach((f) =>
           formData.append("sourceFiles", f),
         );
 
@@ -1066,6 +1084,8 @@
           document.getElementById("aiExamStatus").textContent = "";
           document.getElementById("aiLessonTitle").value = "";
           document.getElementById("aiExamFiles").value = "";
+          const pastedBox = document.getElementById("pastedExamText");
+          if (pastedBox) pastedBox.value = "";
         } catch (err) {
           alert("تعذر الاتصال بالسيرفر");
         }

@@ -1614,72 +1614,146 @@ app.post("/api/admin/notes/approve", requireAdmin, (req, res) => {
 
 // محاولة تحليل نص خام لأسئلة اختيار من متعدد بصيغ شائعة (احتياطي بدون AI API)
 function parseQuestionsHeuristically(rawText) {
-  const text = String(rawText || "").replace(/\r/g, "");
-  // نقسم النص عند بداية كل سؤال جديد (رقم متبوع بنقطة/قوس/شرطة)
-  const blocks = text
-    .split(/(?=(?:^|\n)\s*(?:\d{1,2}|س\s*\d{1,2})\s*[\.\)\-:])/g)
-    .map((b) => b.trim())
+  const text = String(rawText || "")
+    .replace(/\r/g, "")
+    // تحويل الأرقام الهندية العربية (٠-٩) إلى إنجليزية (0-9)
+    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
+
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
     .filter(Boolean);
 
-  const arabicLetters = ["أ", "ب", "ج", "د", "ه"];
   const questions = [];
+  let cur = null; // { q, options, correct, exp }
+  let numberOptions = false; // هل اختيارات السؤال الحالي أرقام (1- 2-) بدل أحرف؟
 
-  blocks.forEach((block) => {
-    const lines = block
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean);
-    if (!lines.length) return;
-
-    // نص السؤال هو أول سطر بعد إزالة رقم السؤال
-    const qLine = lines[0].replace(
-      /^(?:\d{1,2}|س\s*\d{1,2})\s*[\.\)\-:]\s*/,
-      "",
-    );
-    if (!qLine || qLine.length < 3) return;
-
-    const options = [];
-    let correctIdx = 0;
-    let exp = "";
-
-    lines.slice(1).forEach((line) => {
-      const optMatch = line.match(/^(?:[أابجدهABCD1234])\s*[\.\)\-]\s*(.+)$/);
-      if (optMatch && options.length < 6) {
-        options.push(optMatch[1].trim().replace(/\s*[✔✓\*]\s*$/, ""));
-        if (/[✔✓\*]/.test(line)) correctIdx = options.length - 1;
-        return;
-      }
-      const ansMatch = line.match(
-        /^(?:الإجابة|الاجابة|إجابة|الحل)\s*(?:الصحيحة)?\s*[:\-]?\s*(.+)$/,
-      );
-      if (ansMatch) {
-        const ansRaw = ansMatch[1].trim();
-        const letterIdx = arabicLetters.indexOf(ansRaw[0]);
-        if (letterIdx !== -1) {
-          correctIdx = letterIdx;
-        } else {
-          const numMatch = ansRaw.match(/\d+/);
-          if (numMatch) correctIdx = Math.max(0, parseInt(numMatch[0], 10) - 1);
-        }
-        return;
-      }
-      const expMatch = line.match(/^(?:توضيح|شرح|تعليل)\s*[:\-]\s*(.+)$/);
-      if (expMatch) {
-        exp = expMatch[1].trim();
-      }
-    });
-
-    if (qLine && options.length >= 2) {
+  const pushCur = () => {
+    if (cur && cur.q && cur.options.length >= 2) {
+      if (cur.correct === -1) cur.correct = 0;
       questions.push({
-        q: qLine,
-        options,
-        correct: Math.min(correctIdx, options.length - 1),
-        exp,
+        q: cur.q,
+        options: cur.options,
+        correct: Math.min(cur.correct, cur.options.length - 1),
+        exp: cur.exp,
         points: 2,
       });
     }
-  });
+    cur = null;
+    numberOptions = false;
+  };
 
+  const letters = ["أ", "ا", "ب", "ج", "د", "هـ", "ه", "و", "ز"];
+
+  // يفهم "س 3- ..." أو "س1: ..." أو "سؤال 2) ..."
+  const qWordDigit = /^(?:ال)?سؤال\s*(?:رقم\s*)?(\d{1,2})\s*[.\-):]?\s*[-:.]?\s*(.+)$/i;
+  // "س3" / "س 3" المختصرة (إجبارا متبوعة برقم عشان متختلطش بجملة "سؤال")
+  const qShortS = /^س\s*(\d{1,3})\s*[.\-):]?\s*[-:.]?\s*(.+)$/;
+  // يفهم "السؤال الأول / الثاني / ..." (بدون رقم)
+  const qWordOrdinal = /^(?:ال)?سؤال\s+(?:الأول|الثاني|الثالث|الرابع|الخامس|السادس|السابع|الثامن|التاسع|العاشر|الحادي عشر|الثاني عشر)\s*[.\-):]?\s*[-:.]?\s*(.+)$/i;
+  // يفهم "Q1 - ..." إنجليزي
+  const qEnglish = /^q\s*(\d{1,3})\s*[.\-):]?\s*[-:.]?\s*(.+)$/i;
+  // بسملة: رقم مجرد "1) ..." أو "2- ..."
+  const qBareNum = /^(\d{1,3})\s*[.\-):]\s*[-:.]?\s*(.+)$/;
+  // اختيار بحرف "أ- ..." / "A) ..."
+  const optLetter = /^(?:[أابجدهـهوABCDEF])\s*[.\-)ـ:]?\s*(.+)$/;
+  // اختيار برقم "1- ..." (فقط لما السؤال بدأ بـ "س N")
+  const optNum = /^(\d{1,3})\s*[.\-)]\s*(.+)$/;
+
+  for (const line of lines) {
+    // 1) سطر الإجابة الصحيحة
+    if (cur) {
+      const ansMatch = line.match(
+        /^(?:الإجابة|الاجابه|الاجابة|إجابة|اجابة|الحل|الإجابه)\s*(?:الصحيحة)?\s*[:.\-]?\s*(.+)$/i,
+      );
+      if (ansMatch) {
+        const ansRaw = ansMatch[1].trim();
+        const letterIdx = Math.max(
+          letters.indexOf(ansRaw[0]),
+          "ABCDEabcde".indexOf(ansRaw[0]) !== -1
+            ? ["A", "B", "C", "D", "E"].indexOf(ansRaw[0].toUpperCase())
+            : -1,
+        );
+        if (letterIdx !== -1) {
+          cur.correct = letterIdx;
+        } else {
+          const numMatch = ansRaw.match(/\d+/);
+          if (numMatch) cur.correct = Math.max(0, parseInt(numMatch[0], 10) - 1);
+        }
+        continue;
+      }
+
+      // 2) سطر الشرح/التوضيح
+      const expMatch = line.match(
+        /^(?:توضيح|شرح|تعليل|التعليل|الشرح)\s*[:.\-]?\s*(.+)$/i,
+      );
+      if (expMatch) {
+        cur.exp = (cur.exp ? cur.exp + " " : "") + expMatch[1].trim();
+        continue;
+      }
+    }
+
+    // 3) بداية سؤال جديد (لها الأولوية قبل الاختيارات)
+    // لما نكون جوه سؤال "س N" اختياراته أرقام، بنعتبر "1- ..." اختيار عادي،
+    // إلا لو السطر بينتهي بعلامة استفهام "؟" — السؤال الجديد غالبًا بينتهي بيها
+    // بينما الاختيارات نادرًا ما بتنتهي بعلامة استفهام.
+    let bareNum = !(cur && numberOptions) ? line.match(qBareNum) : null;
+    if (!bareNum && cur && numberOptions) {
+      const m = line.match(qBareNum);
+      if (m && /[؟?]\s*$/.test(m[2])) bareNum = m;
+    }
+    let qMatch =
+      line.match(qWordDigit) ||
+      line.match(qShortS) ||
+      line.match(qWordOrdinal) ||
+      line.match(qEnglish) ||
+      bareNum;
+    if (qMatch) {
+      pushCur();
+      // "س N" / "Q N" → اختياراته أرقام غالبًا؛ الباقي → أحرف
+      numberOptions = Boolean(
+        line.match(qWordDigit) || line.match(qShortS) || line.match(qEnglish),
+      );
+      cur = { q: qMatch[qMatch[1] ? 1 : 2].trim() || qMatch[1].trim(), options: [], correct: -1, exp: "" };
+      // في qWordDigit/qEnglish/qBareNum نص السؤال هو المجموعة الأخيرة؛ في ordinal المجموعة 1 (ملتقطة واحدة)
+      const last = qMatch[qMatch.length - 1];
+      cur.q = (last || "").trim();
+      continue;
+    }
+
+    // 4) اختيار بحرف (لما الاختيارات بالأحرف)
+    if (cur && !numberOptions) {
+      const om = line.match(optLetter);
+      if (om) {
+        const cleaned = om[1].trim().replace(/[\s✔✓✱*]+$/g, "");
+        cur.options.push(cleaned);
+        if (/[✔✓✱*]/.test(line) || /^\s*\(?\s*صحيح\s*\)?/.test(om[1])) {
+          cur.correct = cur.options.length - 1;
+        }
+        continue;
+      }
+    }
+
+    // 5) اختيار برقم (لما السؤال بدأ بـ "س N" واختياراته أرقام)
+    if (cur && numberOptions) {
+      const onm = line.match(optNum);
+      if (onm) {
+        const cleaned = onm[2].trim().replace(/[\s✔✓✱*]+$/g, "");
+        cur.options.push(cleaned);
+        if (/[✔✓✱*]/.test(line) || /^\s*\(?\s*صحيح\s*\)?/.test(onm[2])) {
+          cur.correct = cur.options.length - 1;
+        }
+        continue;
+      }
+    }
+
+    // 6) امتداد نص السؤال (سطر تكميلي قبل ظهور الاختيارات)
+    if (cur && cur.options.length === 0) {
+      cur.q = (cur.q ? cur.q + " " : "") + line;
+    }
+  }
+
+  pushCur();
   return questions;
 }
 
@@ -1750,19 +1824,21 @@ app.post(
           .status(400)
           .json({ success: false, message: "اسم الدرس مطلوب" });
       }
-      if (!req.files || req.files.length === 0) {
+      const pastedText = normalizeText(req.body.text || "");
+
+      if ((!req.files || req.files.length === 0) && !pastedText) {
         return res
           .status(400)
           .json({
             success: false,
-            message: "يرجى رفع صورة أو ملف أسئلة أولاً",
+            message: "يرجى رفع صورة/ملف أسئلة أو لصق نص الأسئلة",
           });
       }
 
       // استخراج النص من كل الملفات بالتوازي (أسرع، ومهم لتفادي تجاوز
       // الوقت المسموح للسيرفر عند رفع أكتر من ملف/صورة)
       const examExtractedParts = await Promise.all(
-        req.files.map(async (file) => {
+        (req.files || []).map(async (file) => {
           try {
             return await extractTextFromFile(file.path, file.originalname);
           } catch (e) {
@@ -1773,8 +1849,12 @@ app.post(
           }
         }),
       );
-      const combinedText = examExtractedParts.join("\n");
-      combinedText = combinedText.trim();
+      // لو فيه نص ملصوق، بييجي الأولوية للتغذية المباشرة (أسرع وأدق)
+      const combinedText = (
+        pastedText
+          ? pastedText + "\n" + examExtractedParts.join("\n")
+          : examExtractedParts.join("\n")
+      ).trim();
 
       if (!combinedText) {
         return res.status(400).json({
