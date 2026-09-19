@@ -1625,8 +1625,8 @@ function parseQuestionsHeuristically(rawText) {
     .filter(Boolean);
 
   const questions = [];
-  let cur = null; // { q, options, correct, exp }
-  let numberOptions = false; // هل اختيارات السؤال الحالي أرقام (1- 2-) بدل أحرف؟
+  let cur = null; // { q, options, correct, exp, expectNumbers }
+  let optionStyle = null; // 'letters' | 'numbers' | null — بيتحدد من أول اختيار فعلي
 
   const pushCur = () => {
     if (cur && cur.q && cur.options.length >= 2) {
@@ -1640,31 +1640,24 @@ function parseQuestionsHeuristically(rawText) {
       });
     }
     cur = null;
-    numberOptions = false;
+    optionStyle = null;
   };
 
   const letters = ["أ", "ا", "ب", "ج", "د", "هـ", "ه", "و", "ز"];
 
-  // يفهم "س 3- ..." أو "س1: ..." أو "سؤال 2) ..."
-  const qWordDigit = /^(?:ال)?سؤال\s*(?:رقم\s*)?(\d{1,2})\s*[.\-):]?\s*[-:.]?\s*(.+)$/i;
-  // "س3" / "س 3" المختصرة (إجبارا متبوعة برقم عشان متختلطش بجملة "سؤال")
+  const qWordDigit = /^(?:ال)?سؤال\s*(?:رقم\s*)?(\d{1,3})\s*[.\-):]?\s*[-:.]?\s*(.+)$/i;
   const qShortS = /^س\s*(\d{1,3})\s*[.\-):]?\s*[-:.]?\s*(.+)$/;
-  // يفهم "السؤال الأول / الثاني / ..." (بدون رقم)
   const qWordOrdinal = /^(?:ال)?سؤال\s+(?:الأول|الثاني|الثالث|الرابع|الخامس|السادس|السابع|الثامن|التاسع|العاشر|الحادي عشر|الثاني عشر)\s*[.\-):]?\s*[-:.]?\s*(.+)$/i;
-  // يفهم "Q1 - ..." إنجليزي
   const qEnglish = /^q\s*(\d{1,3})\s*[.\-):]?\s*[-:.]?\s*(.+)$/i;
-  // بسملة: رقم مجرد "1) ..." أو "2- ..."
   const qBareNum = /^(\d{1,3})\s*[.\-):]\s*[-:.]?\s*(.+)$/;
-  // اختيار بحرف "أ- ..." / "A) ..."
   const optLetter = /^(?:[أابجدهـهوABCDEF])\s*[.\-)ـ:]?\s*(.+)$/;
-  // اختيار برقم "1- ..." (فقط لما السؤال بدأ بـ "س N")
   const optNum = /^(\d{1,3})\s*[.\-)]\s*(.+)$/;
 
   for (const line of lines) {
-    // 1) سطر الإجابة الصحيحة
+    // 1) سطر الإجابة الصحيحة (عربي / إنجليزي)
     if (cur) {
       const ansMatch = line.match(
-        /^(?:الإجابة|الاجابه|الاجابة|إجابة|اجابة|الحل|الإجابه)\s*(?:الصحيحة)?\s*[:.\-]?\s*(.+)$/i,
+        /^(?:الإجابة|الاجابه|الاجابة|إجابة|اجابة|الحل|الإجابه|answer|ans|solution|correct\s*answer)\s*(?:الصحيحة)?\s*[:.\-]?\s*(.+)$/i,
       );
       if (ansMatch) {
         const ansRaw = ansMatch[1].trim();
@@ -1683,9 +1676,9 @@ function parseQuestionsHeuristically(rawText) {
         continue;
       }
 
-      // 2) سطر الشرح/التوضيح
+      // 2) سطر الشرح/التوضيح/التعليل (عربي / إنجليزي)
       const expMatch = line.match(
-        /^(?:توضيح|شرح|تعليل|التعليل|الشرح)\s*[:.\-]?\s*(.+)$/i,
+        /^(?:توضيح|شرح|تعليل|التعليل|الشرح|explanation|reason)\s*[:.\-]?\s*(.+)$/i,
       );
       if (expMatch) {
         cur.exp = (cur.exp ? cur.exp + " " : "") + expMatch[1].trim();
@@ -1693,61 +1686,70 @@ function parseQuestionsHeuristically(rawText) {
       }
     }
 
-    // 3) بداية سؤال جديد (لها الأولوية قبل الاختيارات)
-    // لما نكون جوه سؤال "س N" اختياراته أرقام، بنعتبر "1- ..." اختيار عادي،
-    // إلا لو السطر بينتهي بعلامة استفهام "؟" — السؤال الجديد غالبًا بينتهي بيها
-    // بينما الاختيارات نادرًا ما بتنتهي بعلامة استفهام.
-    let bareNum = !(cur && numberOptions) ? line.match(qBareNum) : null;
-    if (!bareNum && cur && numberOptions) {
-      const m = line.match(qBareNum);
-      if (m && /[؟?]\s*$/.test(m[2])) bareNum = m;
-    }
-    let qMatch =
+    // 3) بداية سؤال جديد
+    const qByWord =
       line.match(qWordDigit) ||
       line.match(qShortS) ||
       line.match(qWordOrdinal) ||
-      line.match(qEnglish) ||
-      bareNum;
+      line.match(qEnglish);
+
+    let qMatch = qByWord;
+    if (!qMatch) {
+      const bareNum = line.match(qBareNum);
+      if (bareNum) {
+        // سطر مرقم: يعتبر سؤال جديد إذا:
+        // - مفيش سؤال حالي، أو
+        // - الاختيارات الحالية بالحروف (فالرقم ده مش اختيار)، أو
+        // - النص بينتهي بعلامة استفهام "؟"
+        const looksLikeQ =
+          !cur ||
+          optionStyle === "letters" ||
+          (optionStyle === null && !cur.expectNumbers) ||
+          /[؟?]\s*$/.test(bareNum[2]);
+        if (looksLikeQ) qMatch = bareNum;
+      }
+    }
+
     if (qMatch) {
       pushCur();
-      // "س N" / "Q N" → اختياراته أرقام غالبًا؛ الباقي → أحرف
-      numberOptions = Boolean(
-        line.match(qWordDigit) || line.match(qShortS) || line.match(qEnglish),
-      );
-      cur = { q: qMatch[qMatch[1] ? 1 : 2].trim() || qMatch[1].trim(), options: [], correct: -1, exp: "" };
-      // في qWordDigit/qEnglish/qBareNum نص السؤال هو المجموعة الأخيرة؛ في ordinal المجموعة 1 (ملتقطة واحدة)
-      const last = qMatch[qMatch.length - 1];
-      cur.q = (last || "").trim();
+      // صيغة "س1/س 1" المختصرة بتميل إن اختياراتها أرقام (1- 2- 3-)
+      const expectNumbers = Boolean(qByWord && line.match(qShortS));
+      cur = {
+        q: (qMatch[qMatch.length - 1] || "").trim(),
+        options: [],
+        correct: -1,
+        exp: "",
+        expectNumbers,
+      };
       continue;
     }
 
-    // 4) اختيار بحرف (لما الاختيارات بالأحرف)
-    if (cur && !numberOptions) {
+    // 4) الاختيارات — النمط بيتحدد من أول اختيار
+    if (cur) {
       const om = line.match(optLetter);
-      if (om) {
-        const cleaned = om[1].trim().replace(/[\s✔✓✱*]+$/g, "");
+      if (om && optionStyle !== "numbers") {
+        optionStyle = "letters";
+        const cleaned = om[1].trim().replace(/[\s✔✓✱*]+$/g, "").replace(/\s*\(?\s*صحيح\s*\)?\s*$/g, "");
         cur.options.push(cleaned);
-        if (/[✔✓✱*]/.test(line) || /^\s*\(?\s*صحيح\s*\)?/.test(om[1])) {
+        if (/[✔✓✱*]/.test(line) || /(?:^|\s)\(?\s*صحيح\s*\)?\s*$/.test(om[1])) {
           cur.correct = cur.options.length - 1;
         }
         continue;
       }
-    }
 
-    // 5) اختيار برقم (لما السؤال بدأ بـ "س N" واختياراته أرقام)
-    if (cur && numberOptions) {
       const onm = line.match(optNum);
-      if (onm) {
-        const cleaned = onm[2].trim().replace(/[\s✔✓✱*]+$/g, "");
+      if (onm && optionStyle !== "letters") {
+        optionStyle = "numbers";
+        const cleaned = onm[2].trim().replace(/[\s✔✓✱*]+$/g, "").replace(/\s*\(?\s*صحيح\s*\)?\s*$/g, "");
         cur.options.push(cleaned);
-        if (/[✔✓✱*]/.test(line) || /^\s*\(?\s*صحيح\s*\)?/.test(onm[2])) {
+        if (/[✔✓✱*]/.test(line) || /(?:^|\s)\(?\s*صحيح\s*\)?\s*$/.test(onm[2].trim())) {
           cur.correct = cur.options.length - 1;
         }
         continue;
       }
     }
 
-    // 6) امتداد نص السؤال (سطر تكميلي قبل ظهور الاختيارات)
+    // 5) امتداد نص السؤال (سطر تكميلي قبل ظهور الاختيارات)
     if (cur && cur.options.length === 0) {
       cur.q = (cur.q ? cur.q + " " : "") + line;
     }
