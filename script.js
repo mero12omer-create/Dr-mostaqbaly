@@ -81,16 +81,6 @@ document.addEventListener("DOMContentLoaded", function () {
   // ------------------------------------------
   const signupForm = document.getElementById("signupForm");
   if (signupForm) {
-    // ربط احتياطي إضافي لزرار إرسال الرمز (بالإضافة إلى onclick في الصفحة)
-    const sendOtpBtnEl = document.getElementById("sendOtpBtn");
-    if (sendOtpBtnEl) {
-      sendOtpBtnEl.addEventListener("click", function (e) {
-        e.preventDefault();
-        if (typeof sendOtp === "function") {
-          sendOtp();
-        }
-      });
-    }
     signupForm.addEventListener("submit", async function (e) {
       // 🛑 يمنع المتصفح من عمل ريفرش ومسح البيانات
       e.preventDefault();
@@ -627,3 +617,61 @@ async function loadLeaderboard() {
     console.log("خطأ جلب لوحة الصدارة:", error);
   }
 }
+
+// ========================================
+// تفاعل 3D حقيقي مع حركة الماوس/اللمس على البطاقات (.card-item, .tilt-3d)
+// ========================================
+(function initTilt3D() {
+  const prefersReducedMotion =
+    window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (prefersReducedMotion) return;
+
+  function attachTilt(el) {
+    const MAX_TILT = 10; // أقصى زاوية ميل بالدرجات
+    let rect = null;
+
+    function handleMove(clientX, clientY) {
+      if (!rect) rect = el.getBoundingClientRect();
+      const px = (clientX - rect.left) / rect.width; // 0..1
+      const py = (clientY - rect.top) / rect.height; // 0..1
+      const rotateY = (px - 0.5) * MAX_TILT * 2;
+      const rotateX = (0.5 - py) * MAX_TILT * 2;
+      el.style.transform = `translateY(-9px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg)`;
+      el.style.setProperty("--glow-x", `${px * 100}%`);
+      el.style.setProperty("--glow-y", `${py * 100}%`);
+    }
+
+    el.addEventListener("mouseenter", () => {
+      rect = el.getBoundingClientRect();
+    });
+    el.addEventListener("mousemove", (e) => handleMove(e.clientX, e.clientY));
+    el.addEventListener("mouseleave", () => {
+      el.style.transform = "";
+      rect = null;
+    });
+    el.addEventListener(
+      "touchmove",
+      (e) => {
+        if (e.touches && e.touches[0]) {
+          handleMove(e.touches[0].clientX, e.touches[0].clientY);
+        }
+      },
+      { passive: true },
+    );
+    el.addEventListener("touchend", () => {
+      el.style.transform = "";
+      rect = null;
+    });
+  }
+
+  function initAll() {
+    document.querySelectorAll(".card-item, .tilt-3d").forEach(attachTilt);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initAll);
+  } else {
+    initAll();
+  }
+})();

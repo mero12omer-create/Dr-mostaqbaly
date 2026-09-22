@@ -63,6 +63,7 @@
      <a href="signup.html" class="btn-start-now">ابدأ الآن مجاناً 🚀</a>
       <a href="exams.html" class="btn-outline">جرب الامتحانات 📝</a>
     </div>
+    <div id="hero3d" style="width:100%; max-width:320px; height:220px; margin:20px auto 0;"></div>
   </section>
 <div id="winBanner" class="win-banner" style="display: none;">
     <div class="win-content">
@@ -153,7 +154,83 @@
   </div>
 </footer>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="script.js"></script>
+<script>
+  // عنصر 3D ترحيبي بسيط (شكل سداسي دوّار بألوان المنصة الزرقاء)
+  // يتوقف تلقائياً لو المتصفح مايدعمش WebGL أو المستخدم مفعّل تقليل الحركة
+  (function initHero3D() {
+    const mount = document.getElementById("hero3d");
+    if (!mount || typeof THREE === "undefined") return;
+    const reduceMotion =
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    let renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    } catch (e) {
+      return; // مفيش دعم WebGL، نسيب المساحة فاضية بهدوء
+    }
+
+    const width = mount.clientWidth || 300;
+    const height = mount.clientHeight || 220;
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    mount.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+    camera.position.z = 4.2;
+
+    const geometry = new THREE.IcosahedronGeometry(1.35, 0);
+    const material = new THREE.MeshBasicMaterial({
+      color: 0x2563eb,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.85,
+    });
+    const shape = new THREE.Mesh(geometry, material);
+    scene.add(shape);
+
+    const glowGeometry = new THREE.IcosahedronGeometry(1.5, 0);
+    const glowMaterial = new THREE.MeshBasicMaterial({
+      color: 0x60a5fa,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.25,
+    });
+    const glowShape = new THREE.Mesh(glowGeometry, glowMaterial);
+    scene.add(glowShape);
+
+    let targetRotX = 0;
+    let targetRotY = 0;
+    mount.addEventListener("mousemove", (e) => {
+      const rect = mount.getBoundingClientRect();
+      targetRotY = ((e.clientX - rect.left) / rect.width - 0.5) * 1.2;
+      targetRotX = ((e.clientY - rect.top) / rect.height - 0.5) * 1.2;
+    });
+
+    function animate() {
+      requestAnimationFrame(animate);
+      shape.rotation.y += reduceMotion ? 0 : 0.004;
+      shape.rotation.x += reduceMotion ? 0 : 0.002;
+      glowShape.rotation.y -= reduceMotion ? 0 : 0.002;
+      shape.rotation.y += (targetRotY - shape.rotation.y) * 0.02;
+      shape.rotation.x += (targetRotX - shape.rotation.x) * 0.02;
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener("resize", () => {
+      const w = mount.clientWidth || width;
+      const h = mount.clientHeight || height;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    });
+  })();
+</script>
 
 </body>
 </html>
