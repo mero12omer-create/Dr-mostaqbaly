@@ -65,9 +65,9 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+        // مسموح بتحميل Three.js من cdnjs فقط (لعناصر الواجهة ثلاثية الأبعاد)
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "https:"],
         connectSrc: ["'self'"],
         objectSrc: ["'none'"],
@@ -87,12 +87,9 @@ const PUBLIC_PAGE_FILES = new Set([
   "profile.html",
   "signup.html",
   "admin.html",
-  "planner.html",
   "script.js",
-  "planner.js",
   "subjects.js",
   "style.css",
-  "planner.css",
   "image.jpg",
   "notes.png",
   "new-design-concept.png",
@@ -496,26 +493,19 @@ async function initializeDatabase() {
   await db.runAsync(`DELETE FROM otp_codes WHERE expires_at < ?`, [new Date()]);
 }
 
-const databaseReady = initializeDatabase()
-  .then(() => true)
-  .catch((err) => {
-    // لا نوقف خادم الواجهة بالكامل إذا كانت إعدادات Supabase ناقصة أثناء التطوير.
-    // طلبات API ستتلقى 503 واضحاً من middleware أدناه إلى أن تُضبط قاعدة البيانات.
-    console.error("خطأ في تهيئة قاعدة البيانات:", err.message);
-    return false;
-  });
+const databaseReady = initializeDatabase().catch((err) => {
+  console.error("خطأ في تهيئة قاعدة البيانات:", err.message);
+  throw err;
+});
 
 // لا نستقبل طلبات API قبل اكتمال إنشاء جداول Supabase.
 app.use("/api", async (req, res, next) => {
-  const isReady = await databaseReady;
-  if (!isReady) {
-    return res.status(503).json({
-      success: false,
-      code: "DATABASE_UNAVAILABLE",
-      message: "قاعدة البيانات غير متاحة حالياً. اضبط DATABASE_URL ثم أعد تشغيل الخادم.",
-    });
+  try {
+    await databaseReady;
+    next();
+  } catch {
+    res.status(503).json({ success: false, code: "DATABASE_UNAVAILABLE", message: "قاعدة البيانات غير متاحة حالياً" });
   }
-  return next();
 });
 
 // تخزين رموز التحقق (OTP) مؤقتاً في الذاكرة (إلى جانب قاعدة البيانات)
@@ -1367,73 +1357,25 @@ async function extractTextFromFile(filePath, originalName) {
   return "";
 }
 
-app.post("/api/notes", requireAdmin, upload.single("file"), async (req, res) => {
-  try {
-    const noteBranch = normalizeBranch(req.body.branch);
-    const subjectKey = normalizeSubjectKey(req.body.subjectKey);
-    const subjectName = getSubjectLabel(subjectKey, noteBranch, req.body.subjectName);
-    const subjectGroup = getSubjectGroup(subjectKey, noteBranch);
-    const title = normalizeText(req.body.title);
-    const ownerName = normalizeText(req.body.ownerName || "دكتور مستقبلي");
-
-    // رابط خارجي مباشر (اختياري) بدل رفع ملف
-    const externalUrl = normalizeText(req.body.externalUrl || "");
-
-    let fileUrl = null;
-    let size = normalizeText(req.body.size || "");
-
-    if (req.file) {
-      // تم رفع ملف فعلي (PDF/DOCX/صورة) → يترفع على Supabase Storage فورًا وينشُر مباشرة
-      fileUrl = await uploadLocalFileToStorage(
-        req.file.path,
-        req.file.originalname || "مذكرة.pdf",
-      );
-      if (!size) {
-        size = req.file.size > 0
-          ? `${(req.file.size / (1024 * 1024)).toFixed(2)} MB`
-          : "غير معروف";
+app.post("/api/notes", requireAdmin, (req, res) => {
+  const noteBranch = normalizeBranch(req.body.branch);
+  const subjectKey = normalizeSubjectKey(req.body.subjectKey);
+  const subjectName = getSubjectLabel(subjectKey, noteBranch, req.body.subjectName);
+  const subjectGroup = getSubjectGroup(subjectKey, noteBranch);
+  const { title, size, fileUrl } = req.body;
+  const ownerName = normalizeText(req.body.ownerName || "دكتور مستقبلي");
+  db.run(
+    `INSERT INTO notes (title, subjectKey, subjectName, subjectGroup, ownerName, size, fileUrl, branch) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [title, subjectKey, subjectName, subjectGroup, ownerName, size, fileUrl, noteBranch],
+    function (err) {
+      if (err) {
+        return res
+          .status(500)
+          .json({ success: false, message: "خطأ في حفظ المذكرة" });
       }
-      fs.unlink(req.file.path, () => {});
-    } else if (externalUrl && /^https?:\/\//i.test(externalUrl)) {
-      fileUrl = externalUrl;
-    }
-
-    if (!title) {
-      return res
-        .status(400)
-        .json({ success: false, message: "عنوان المذكرة مطلوب" });
-    }
-    if (!fileUrl) {
-      return res.status(400).json({
-        success: false,
-        message: "يرجى رفع ملف المذكرة أو إدخال رابط مباشر صحيح",
-      });
-    }
-
-    // المذكرة تُنشر فورًا (isDraft = 0) وبتظهر للطلاب مباشرة
-    db.run(
-      `INSERT INTO notes (title, subjectKey, subjectName, subjectGroup, ownerName, size, fileUrl, branch, isDraft) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
-      [title, subjectKey, subjectName, subjectGroup, ownerName, size, fileUrl, noteBranch],
-      function (err) {
-        if (err) {
-          return res
-            .status(500)
-            .json({ success: false, message: "خطأ في حفظ المذكرة" });
-        }
-        res.status(200).json({
-          success: true,
-          id: this.lastID,
-          message: "تم رفع المذكرة ونشرها للطلاب بنجاح ✅",
-        });
-      },
-    );
-  } catch (error) {
-    console.log("خطأ في رفع المذكرة:", error.message);
-    return res.status(500).json({
-      success: false,
-      message: "تعذر رفع المذكرة. تأكد من إعداد SUPABASE_URL وSUPABASE_SERVICE_KEY",
-    });
-  }
+      res.status(200).json({ success: true, id: this.lastID });
+    },
+  );
 });
 
 app.post(
@@ -1615,148 +1557,72 @@ app.post("/api/admin/notes/approve", requireAdmin, (req, res) => {
 
 // محاولة تحليل نص خام لأسئلة اختيار من متعدد بصيغ شائعة (احتياطي بدون AI API)
 function parseQuestionsHeuristically(rawText) {
-  const text = String(rawText || "")
-    .replace(/\r/g, "")
-    // تحويل الأرقام الهندية العربية (٠-٩) إلى إنجليزية (0-9)
-    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
-
-  const lines = text
-    .split("\n")
-    .map((l) => l.trim())
+  const text = String(rawText || "").replace(/\r/g, "");
+  // نقسم النص عند بداية كل سؤال جديد (رقم متبوع بنقطة/قوس/شرطة)
+  const blocks = text
+    .split(/(?=(?:^|\n)\s*(?:\d{1,2}|س\s*\d{1,2})\s*[\.\)\-:])/g)
+    .map((b) => b.trim())
     .filter(Boolean);
 
+  const arabicLetters = ["أ", "ب", "ج", "د", "ه"];
   const questions = [];
-  let cur = null; // { q, options, correct, exp, expectNumbers }
-  let optionStyle = null; // 'letters' | 'numbers' | null — بيتحدد من أول اختيار فعلي
 
-  const pushCur = () => {
-    if (cur && cur.q && cur.options.length >= 2) {
-      if (cur.correct === -1) cur.correct = 0;
-      questions.push({
-        q: cur.q,
-        options: cur.options,
-        correct: Math.min(cur.correct, cur.options.length - 1),
-        exp: cur.exp,
-        points: 2,
-      });
-    }
-    cur = null;
-    optionStyle = null;
-  };
+  blocks.forEach((block) => {
+    const lines = block
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+    if (!lines.length) return;
 
-  const letters = ["أ", "ا", "ب", "ج", "د", "هـ", "ه", "و", "ز"];
+    // نص السؤال هو أول سطر بعد إزالة رقم السؤال
+    const qLine = lines[0].replace(
+      /^(?:\d{1,2}|س\s*\d{1,2})\s*[\.\)\-:]\s*/,
+      "",
+    );
+    if (!qLine || qLine.length < 3) return;
 
-  const qWordDigit = /^(?:ال)?سؤال\s*(?:رقم\s*)?(\d{1,3})\s*[.\-):]?\s*[-:.]?\s*(.+)$/i;
-  const qShortS = /^س\s*(\d{1,3})\s*[.\-):]?\s*[-:.]?\s*(.+)$/;
-  const qWordOrdinal = /^(?:ال)?سؤال\s+(?:الأول|الثاني|الثالث|الرابع|الخامس|السادس|السابع|الثامن|التاسع|العاشر|الحادي عشر|الثاني عشر)\s*[.\-):]?\s*[-:.]?\s*(.+)$/i;
-  const qEnglish = /^q\s*(\d{1,3})\s*[.\-):]?\s*[-:.]?\s*(.+)$/i;
-  const qBareNum = /^(\d{1,3})\s*[.\-):]\s*[-:.]?\s*(.+)$/;
-  const optLetter = /^(?:[أابجدهـهوABCDEF])\s*[.\-)ـ:]?\s*(.+)$/;
-  const optNum = /^(\d{1,3})\s*[.\-)]\s*(.+)$/;
+    const options = [];
+    let correctIdx = 0;
+    let exp = "";
 
-  for (const line of lines) {
-    // 1) سطر الإجابة الصحيحة (عربي / إنجليزي)
-    if (cur) {
+    lines.slice(1).forEach((line) => {
+      const optMatch = line.match(/^(?:[أابجدهABCD1234])\s*[\.\)\-]\s*(.+)$/);
+      if (optMatch && options.length < 6) {
+        options.push(optMatch[1].trim().replace(/\s*[✔✓\*]\s*$/, ""));
+        if (/[✔✓\*]/.test(line)) correctIdx = options.length - 1;
+        return;
+      }
       const ansMatch = line.match(
-        /^(?:الإجابة|الاجابه|الاجابة|إجابة|اجابة|الحل|الإجابه|answer|ans|solution|correct\s*answer)\s*(?:الصحيحة)?\s*[:.\-]?\s*(.+)$/i,
+        /^(?:الإجابة|الاجابة|إجابة|الحل)\s*(?:الصحيحة)?\s*[:\-]?\s*(.+)$/,
       );
       if (ansMatch) {
         const ansRaw = ansMatch[1].trim();
-        const letterIdx = Math.max(
-          letters.indexOf(ansRaw[0]),
-          "ABCDEabcde".indexOf(ansRaw[0]) !== -1
-            ? ["A", "B", "C", "D", "E"].indexOf(ansRaw[0].toUpperCase())
-            : -1,
-        );
+        const letterIdx = arabicLetters.indexOf(ansRaw[0]);
         if (letterIdx !== -1) {
-          cur.correct = letterIdx;
+          correctIdx = letterIdx;
         } else {
           const numMatch = ansRaw.match(/\d+/);
-          if (numMatch) cur.correct = Math.max(0, parseInt(numMatch[0], 10) - 1);
+          if (numMatch) correctIdx = Math.max(0, parseInt(numMatch[0], 10) - 1);
         }
-        continue;
+        return;
       }
-
-      // 2) سطر الشرح/التوضيح/التعليل (عربي / إنجليزي)
-      const expMatch = line.match(
-        /^(?:توضيح|شرح|تعليل|التعليل|الشرح|explanation|reason)\s*[:.\-]?\s*(.+)$/i,
-      );
+      const expMatch = line.match(/^(?:توضيح|شرح|تعليل)\s*[:\-]\s*(.+)$/);
       if (expMatch) {
-        cur.exp = (cur.exp ? cur.exp + " " : "") + expMatch[1].trim();
-        continue;
+        exp = expMatch[1].trim();
       }
+    });
+
+    if (qLine && options.length >= 2) {
+      questions.push({
+        q: qLine,
+        options,
+        correct: Math.min(correctIdx, options.length - 1),
+        exp,
+        points: 2,
+      });
     }
+  });
 
-    // 3) بداية سؤال جديد
-    const qByWord =
-      line.match(qWordDigit) ||
-      line.match(qShortS) ||
-      line.match(qWordOrdinal) ||
-      line.match(qEnglish);
-
-    let qMatch = qByWord;
-    if (!qMatch) {
-      const bareNum = line.match(qBareNum);
-      if (bareNum) {
-        // سطر مرقم: يعتبر سؤال جديد إذا:
-        // - مفيش سؤال حالي، أو
-        // - الاختيارات الحالية بالحروف (فالرقم ده مش اختيار)، أو
-        // - النص بينتهي بعلامة استفهام "؟"
-        const looksLikeQ =
-          !cur ||
-          optionStyle === "letters" ||
-          (optionStyle === null && !cur.expectNumbers) ||
-          /[؟?]\s*$/.test(bareNum[2]);
-        if (looksLikeQ) qMatch = bareNum;
-      }
-    }
-
-    if (qMatch) {
-      pushCur();
-      // صيغة "س1/س 1" المختصرة بتميل إن اختياراتها أرقام (1- 2- 3-)
-      const expectNumbers = Boolean(qByWord && line.match(qShortS));
-      cur = {
-        q: (qMatch[qMatch.length - 1] || "").trim(),
-        options: [],
-        correct: -1,
-        exp: "",
-        expectNumbers,
-      };
-      continue;
-    }
-
-    // 4) الاختيارات — النمط بيتحدد من أول اختيار
-    if (cur) {
-      const om = line.match(optLetter);
-      if (om && optionStyle !== "numbers") {
-        optionStyle = "letters";
-        const cleaned = om[1].trim().replace(/[\s✔✓✱*]+$/g, "").replace(/\s*\(?\s*صحيح\s*\)?\s*$/g, "");
-        cur.options.push(cleaned);
-        if (/[✔✓✱*]/.test(line) || /(?:^|\s)\(?\s*صحيح\s*\)?\s*$/.test(om[1])) {
-          cur.correct = cur.options.length - 1;
-        }
-        continue;
-      }
-
-      const onm = line.match(optNum);
-      if (onm && optionStyle !== "letters") {
-        optionStyle = "numbers";
-        const cleaned = onm[2].trim().replace(/[\s✔✓✱*]+$/g, "").replace(/\s*\(?\s*صحيح\s*\)?\s*$/g, "");
-        cur.options.push(cleaned);
-        if (/[✔✓✱*]/.test(line) || /(?:^|\s)\(?\s*صحيح\s*\)?\s*$/.test(onm[2].trim())) {
-          cur.correct = cur.options.length - 1;
-        }
-        continue;
-      }
-    }
-
-    // 5) امتداد نص السؤال (سطر تكميلي قبل ظهور الاختيارات)
-    if (cur && cur.options.length === 0) {
-      cur.q = (cur.q ? cur.q + " " : "") + line;
-    }
-  }
-
-  pushCur();
   return questions;
 }
 
@@ -1812,7 +1678,7 @@ async function parseQuestionsWithAI(rawText) {
 app.post(
   "/api/admin/exams/generate",
   requireAdmin,
-  upload.array("sourceFiles", 10),
+  upload.array("sourceFiles", 30),
   async (req, res) => {
     try {
       const rawSubjectKey = normalizeText(req.body.subjectKey);
@@ -1827,48 +1693,64 @@ app.post(
           .status(400)
           .json({ success: false, message: "اسم الدرس مطلوب" });
       }
-      const pastedText = normalizeText(req.body.text || "");
-
-      if ((!req.files || req.files.length === 0) && !pastedText) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "يرجى رفع صورة/ملف أسئلة أو لصق نص الأسئلة",
-          });
+      const hasFiles = req.files && req.files.length > 0;
+      const hasRawText = normalizeText(req.body.rawText).length > 0;
+      if (!hasFiles && !hasRawText) {
+        return res.status(400).json({
+          success: false,
+          message: "يرجى رفع صورة/ملف أسئلة أو لصق نص الأسئلة أولاً",
+        });
       }
 
       // استخراج النص من كل الملفات بالتوازي (أسرع، ومهم لتفادي تجاوز
       // الوقت المسموح للسيرفر عند رفع أكتر من ملف/صورة)
-      const examExtractedParts = await Promise.all(
-        (req.files || []).map(async (file) => {
-          try {
-            return await extractTextFromFile(file.path, file.originalname);
-          } catch (e) {
-            console.log("تعذر استخراج نص من ملف:", file.originalname, e);
-            return "";
-          } finally {
-            fs.unlink(file.path, () => {});
-          }
-        }),
-      );
-      // لو فيه نص ملصوق، بييجي الأولوية للتغذية المباشرة (أسرع وأدق)
-      const combinedText = (
-        pastedText
-          ? pastedText + "\n" + examExtractedParts.join("\n")
-          : examExtractedParts.join("\n")
-      ).trim();
+      const examExtractedParts = hasFiles
+        ? await Promise.all(
+            req.files.map(async (file) => {
+              try {
+                return await extractTextFromFile(file.path, file.originalname);
+              } catch (e) {
+                console.log("تعذر استخراج نص من ملف:", file.originalname, e);
+                return "";
+              } finally {
+                fs.unlink(file.path, () => {});
+              }
+            }),
+          )
+        : [];
+      let combinedText = examExtractedParts.join("\n");
+      const rawTextInput = normalizeText(req.body.rawText);
+      if (rawTextInput) {
+        combinedText = combinedText ? `${combinedText}\n${rawTextInput}` : rawTextInput;
+      }
+      combinedText = combinedText.trim();
 
       if (!combinedText) {
         return res.status(400).json({
           success: false,
-          message: "تعذر استخراج أي نص من الملفات المرفوعة، جرب صورة أوضح",
+          message: "تعذر استخراج أي نص من الملفات المرفوعة أو النص الملصق، جرب صورة أوضح أو راجع النص",
         });
       }
 
-      let questions = await parseQuestionsWithAI(combinedText);
+      // تقسيم النص لأجزاء (chunks) عشان نقدر نستخرج أعداد كبيرة من الأسئلة
+      // بدون ما نتجاوز حد النص المسموح به لموديل الـ AI في المرة الواحدة
+      const CHUNK_SIZE = 9000;
+      const textChunks = [];
+      for (let i = 0; i < combinedText.length; i += CHUNK_SIZE) {
+        textChunks.push(combinedText.slice(i, i + CHUNK_SIZE));
+      }
+
+      let questions = [];
       let usedAI = true;
-      if (!questions || questions.length === 0) {
+      for (const chunk of textChunks) {
+        const chunkQuestions = await parseQuestionsWithAI(chunk);
+        if (chunkQuestions && chunkQuestions.length) {
+          questions = questions.concat(chunkQuestions);
+        } else {
+          usedAI = false;
+        }
+      }
+      if (!questions.length) {
         usedAI = false;
         questions = parseQuestionsHeuristically(combinedText);
       }
