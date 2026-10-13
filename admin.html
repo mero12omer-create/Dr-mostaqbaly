@@ -87,8 +87,7 @@
         var idFnMap = {
           publishExamBtn: "publishExamQuestions",
           addExamContentBtn: "addExamContent",
-          generateAIDraftBtn: "generateAIDraft",
-          approveDraftBtn: "approveDraft",
+          uploadNoteBtn: "uploadNote",
           refreshNotesBtn: "loadNotes",
           resetAllBtn: "resetAll",
         };
@@ -490,130 +489,58 @@
 
       <div id="notesTab" class="tab-content" style="display: none">
         <div class="admin-card">
-          <div class="note-manager">
-            <div class="note-manager-layout">
-              <div class="note-panel">
-                <h3>إنشاء مذكرة بالذكاء الاصطناعي 📚🤖</h3>
-                <div class="form-group">
-                  <label>اختر المادة:</label>
-                  <select id="noteSubSelect"></select>
-                </div>
-                <div class="form-group">
-                  <label>الفرع:</label>
-                  <select id="noteBranch">
-                    <option value="عام">عام 🎓</option>
-                    <option value="أزهر">أزهر 🕌</option>
-                    <option value="مشترك">مشترك 🔄</option>
-                  </select>
-                </div>
-                  <div class="form-group">
-                    <label>عنوان المذكرة:</label>
-                    <input
-                      type="text"
-                      id="noteTitle"
-                      placeholder="مثال: ملخص النحو - الفصل الأول"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label>اسم صاحب المذكرة:</label>
-                    <input
-                      type="text"
-                      id="noteOwnerName"
-                      placeholder="مثال: أ/ محمد أحمد"
-                      maxlength="120"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label>رفع المصدر (PDF / DOCX / TXT / صورة) - يمكن اختيار أكثر من ملف:</label>
-                  <input
-                    type="file"
-                    id="noteSourceFile"
-                    accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.webp"
-                    multiple
-                  />
-                </div>
-                <div class="form-group">
-                  <label>حجم الملف (اختياري):</label>
-                  <input type="text" id="noteSize" placeholder="2.5 MB" />
-                </div>
-                <button id="generateAIDraftBtn" class="btn-main">
-                  استخراج المحتوى وإنشاء مذكرة ✨
-                </button>
-                <p style="font-size: 12px; color: gray; margin-top: 8px">
-                  لا يتم نشر أي مذكرة تلقائيًا. ستظهر المسودة أولًا ثم يراجعها
-                  الأدمن ويعتمدها.
-                </p>
+          <h3>📚 إضافة مذكرة جديدة</h3>
+          <p style="font-size: 13px; color: gray; line-height: 1.8">
+            ارفع ملف المذكرة كما هو. سيتم نشره مباشرة للطلاب بعد الحفظ بدون
+            إنشاء مسودة أو معالجة بالذكاء الاصطناعي.
+          </p>
+          <div class="note-manager-layout">
+            <div class="note-panel">
+              <div class="form-group">
+                <label for="noteSubSelect">المادة:</label>
+                <select id="noteSubSelect"></select>
               </div>
-
-              <div class="note-panel">
-                <div id="notePreviewCard" class="note-preview-card">
-                  <div>
-                    <div class="note-preview-badge">معاينة المذكرة</div>
-                    <h4 id="notePreviewTitle">عنوان المذكرة</h4>
-                    <p id="notePreviewMeta">المادة • الفرع</p>
-                    <p id="notePreviewDesc">
-                      ارفع ملفًا أو أدخل العنوان وسيظهر هنا نموذج المسودة.
-                    </p>
-                  </div>
-                  <div>
-                    <span id="notePreviewSubject" class="note-chip"
-                      >المادة</span
-                    >
-                    <span id="notePreviewBranch" class="note-chip">الفرع</span>
-                  </div>
-                </div>
+              <div class="form-group">
+                <label for="noteBranch">الفرع:</label>
+                <select id="noteBranch">
+                  <option value="عام">عام 🎓</option>
+                  <option value="أزهر">أزهر 🕌</option>
+                  <option value="مشترك">مشترك 🔄</option>
+                </select>
               </div>
-            </div>
-
-            <div style="margin-top: 16px">
-              <div class="ai-note-shell">
-                <div class="ai-note-grid">
-                  <div class="ai-note-card">
-                    <h4 style="margin-top: 0">مسودة المذكرة</h4>
-                    <div id="draftOutput" class="ai-draft-output">
-                      سيظهر هنا نص المذكرة بعد المعالجة.
-                    </div>
-                  </div>
-                  <div class="ai-note-card">
-                    <h4 style="margin-top: 0">إجراءات الاعتماد</h4>
-                    <p style="font-size: 13px; color: gray; line-height: 1.8">
-                      بعد مراجعة المسودة، يمكن اعتمادها ونشرها داخل المنصة.
-                      ستظهر علامة مائية باسم دكتور مستقبلي وبيانات التواصل في
-                      نهاية المذكرة.
-                    </p>
-                    <button
-                      id="approveDraftBtn"
-                      class="btn-main"
-                      style="margin-top: 8px"
-                    >
-                      اعتماد المذكرة ✅
-                    </button>
-                    <button
-                      id="refreshNotesBtn"
-                      class="btn-outline"
-                      style="margin-top: 8px"
-                    >
-                      تحديث القائمة
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <h4 style="margin-bottom: 10px">المذكرات الحالية</h4>
-                  <div class="admin-filter-row" style="margin-bottom: 12px">
-                    <select id="adminNotesBranchFilter" class="admin-filter-select">
-                      <option value="all">كل الفروع</option>
-                      <option value="عام">عام</option>
-                      <option value="أزهر">أزهر</option>
-                      <option value="مشترك">مشترك</option>
-                    </select>
-                    <select id="adminNotesGroupFilter" class="admin-filter-select"></select>
-                    <select id="adminNotesSubjectFilter" class="admin-filter-select"></select>
-                  </div>
-                  <div id="notesList" class="note-list-grid"></div>
-                </div>
+              <div class="form-group">
+                <label for="noteTitle">عنوان المذكرة:</label>
+                <input type="text" id="noteTitle" placeholder="مثال: ملخص النحو - الفصل الأول" maxlength="180" />
               </div>
+              <div class="form-group">
+                <label for="noteOwnerName">اسم صاحب المذكرة:</label>
+                <input type="text" id="noteOwnerName" placeholder="مثال: أ/ محمد أحمد" maxlength="120" />
+              </div>
+              <div class="form-group">
+                <label for="noteFile">ملف المذكرة (PDF أو Word أو TXT أو صورة):</label>
+                <input type="file" id="noteFile" accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.webp" />
+              </div>
+              <div class="form-group">
+                <label for="noteSize">حجم الملف (اختياري):</label>
+                <input type="text" id="noteSize" placeholder="سيتم حسابه تلقائياً إذا تركته فارغاً" />
+              </div>
+              <button id="uploadNoteBtn" class="btn-main">حفظ ونشر المذكرة 📤</button>
+              <div id="noteUploadStatus" style="font-size: 13px; color: gray; margin-top: 10px"></div>
             </div>
           </div>
+          <hr style="border: 0; border-top: 1px solid var(--border); margin: 24px 0" />
+          <h4 style="margin-bottom: 10px">المذكرات المنشورة</h4>
+          <div class="admin-filter-row" style="margin-bottom: 12px">
+            <select id="adminNotesBranchFilter" class="admin-filter-select">
+              <option value="all">كل الفروع</option>
+              <option value="عام">عام</option>
+              <option value="أزهر">أزهر</option>
+              <option value="مشترك">مشترك</option>
+            </select>
+            <select id="adminNotesGroupFilter" class="admin-filter-select"></select>
+            <select id="adminNotesSubjectFilter" class="admin-filter-select"></select>
+          </div>
+          <div id="notesList" class="note-list-grid"></div>
         </div>
       </div>
 
@@ -772,11 +699,9 @@
           fillSubjectSelect(exSel, exBranch?.value || "عام", exSel?.value);
           fillSubjectSelect(ntSel, ntBranch?.value || "عام", ntSel?.value);
           fillSubjectSelect(aiSel, aiBranch?.value || "عام", aiSel?.value);
-          updateNotePreview();
         };
         [exBranch, ntBranch, aiBranch].forEach((select) => select?.addEventListener("change", sync));
         sync();
-        bindNotePreview();
       }
 
       // ========================================
@@ -1119,58 +1044,6 @@
         }
       }
 
-      function bindNotePreview() {
-        const titleInput = document.getElementById("noteTitle");
-        const subjectSelect = document.getElementById("noteSubSelect");
-        const branchSelect = document.getElementById("noteBranch");
-        const urlInput = document.getElementById("noteUrl");
-        const sizeInput = document.getElementById("noteSize");
-        const ownerInput = document.getElementById("noteOwnerName");
-
-        [titleInput, subjectSelect, branchSelect, urlInput, sizeInput, ownerInput].forEach(
-          (el) => {
-            if (el) {
-              el.removeEventListener("input", updateNotePreview);
-              el.removeEventListener("change", updateNotePreview);
-              el.addEventListener("input", updateNotePreview);
-              el.addEventListener("change", updateNotePreview);
-            }
-          },
-        );
-        updateNotePreview();
-      }
-
-      function updateNotePreview() {
-        const titleEl = document.getElementById("notePreviewTitle");
-        const metaEl = document.getElementById("notePreviewMeta");
-        const descEl = document.getElementById("notePreviewDesc");
-        const subjectEl = document.getElementById("notePreviewSubject");
-        const branchEl = document.getElementById("notePreviewBranch");
-        const titleInput = document.getElementById("noteTitle");
-        const subjectSelect = document.getElementById("noteSubSelect");
-        const branchSelect = document.getElementById("noteBranch");
-        const urlInput = document.getElementById("noteUrl");
-        const sizeInput = document.getElementById("noteSize");
-        const ownerInput = document.getElementById("noteOwnerName");
-
-        if (!titleEl || !metaEl || !descEl || !subjectEl || !branchEl) return;
-
-        const title = titleInput?.value.trim() || "عنوان المذكرة";
-        const subject = SUBJECTS[subjectSelect?.value] || "المادة";
-        const branch = branchSelect?.value || "عام";
-        const owner = ownerInput?.value.trim() || "صاحب المذكرة";
-        const url = urlInput?.value.trim() || "";
-        const size = sizeInput?.value.trim() || "غير معروف";
-
-        titleEl.textContent = title;
-        metaEl.textContent = `${subject} • ${branch} • ${owner}`;
-        descEl.textContent = url
-          ? `سيتم ربط الملف: ${url} • الحجم: ${size}`
-          : `صاحب المذكرة: ${owner}`;
-        subjectEl.textContent = subject;
-        branchEl.textContent = branch;
-      }
-
       // حفظ الامتحانات
       async function addExamContent() {
         const sub = document.getElementById("examSubSelect").value;
@@ -1232,113 +1105,51 @@
         }
       }
 
-      // حفظ المذكرات
-      async function generateAIDraft() {
-        const sub = document.getElementById("noteSubSelect").value;
-        const branch = document.getElementById("noteBranch").value;
-        const title = document.getElementById("noteTitle").value.trim();
-        const ownerName = document.getElementById("noteOwnerName").value.trim();
-        const fileInput = document.getElementById("noteSourceFile");
-        const size =
-          document.getElementById("noteSize").value.trim() || "غير معروف";
-        const draftOutput = document.getElementById("draftOutput");
+      // رفع المذكرة ونشرها مباشرة بدون إنشاء مسودة أو معالجة بالذكاء الاصطناعي
+      async function uploadNote() {
+        const subjectKey = document.getElementById("noteSubSelect")?.value;
+        const branch = document.getElementById("noteBranch")?.value || "عام";
+        const title = document.getElementById("noteTitle")?.value.trim();
+        const ownerName = document.getElementById("noteOwnerName")?.value.trim();
+        const file = document.getElementById("noteFile")?.files?.[0];
+        const status = document.getElementById("noteUploadStatus");
+        const button = document.getElementById("uploadNoteBtn");
 
-        if (!title) return alert("أدخل عنوان المذكرة أولًا");
-        if (!ownerName) return alert("أدخل اسم صاحب المذكرة أولًا");
-        if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-          return alert("يرجى رفع ملف مصدر واحد على الأقل");
-        }
+        if (!title) return alert("اكتب عنوان المذكرة أولاً");
+        if (!ownerName) return alert("اكتب اسم صاحب المذكرة أولاً");
+        if (!file) return alert("اختر ملف المذكرة أولاً");
 
         const formData = new FormData();
         formData.append("title", title);
-        formData.append("subjectName", SUBJECTS[sub]);
-        formData.append("subjectKey", sub);
+        formData.append("subjectKey", subjectKey);
+        formData.append("subjectName", SUBJECTS[subjectKey] || "مادة");
         formData.append("branch", branch);
         formData.append("ownerName", ownerName);
-        formData.append("size", size);
-        formData.append("sourceType", "ملف مرفوع");
-        formData.append(
-          "sourceName",
-          Array.from(fileInput.files).map((f) => f.name).join("، "),
-        );
-        Array.from(fileInput.files).forEach((f) =>
-          formData.append("sourceFiles", f),
-        );
+        formData.append("size", document.getElementById("noteSize")?.value.trim() || `${(file.size / (1024 * 1024)).toFixed(2)} MB`);
+        formData.append("noteFile", file);
 
-        if (draftOutput) {
-          draftOutput.textContent = "جاري استخراج المحتوى وإعداد المسودة...";
-        }
-
+        if (status) status.textContent = "جاري رفع المذكرة ونشرها...";
+        if (button) { button.disabled = true; button.textContent = "جاري الرفع... ⏳"; }
         try {
-          const res = await fetch("/api/admin/notes/generate", {
+          const res = await fetch("/api/admin/notes/upload", {
             method: "POST",
             headers: { "x-admin-token": adminToken },
             body: formData,
           });
           const data = await res.json();
-          if (!res.ok || !data.success) {
-            alert(data.message || "تعذر إنشاء المسودة");
-            return;
-          }
-
-          currentDraft = data.draft;
-          if (draftOutput) {
-            const aiDraft = data.draft?.aiDraft
-              ? JSON.parse(data.draft.aiDraft)
-              : null;
-            draftOutput.textContent = aiDraft
-              ? `${aiDraft.title}\n\n${aiDraft.sections?.map((section) => `### ${section.title}\n${section.content}`).join("\n\n")}`
-              : "تم إنشاء مسودة لكن لا توجد محتويات جاهزة للعرض";
-          }
-
-          updateNotePreview(title, SUBJECTS[sub], branch);
-          alert("تم إنشاء المسودة بنجاح، وها هي جاهزة للمراجعة والاعتماد");
+          if (!res.ok || !data.success) throw new Error(data.message || "تعذر نشر المذكرة");
+          alert("تم رفع المذكرة ونشرها للطلاب بنجاح ✅");
+          document.getElementById("noteTitle").value = "";
+          document.getElementById("noteOwnerName").value = "";
+          document.getElementById("noteSize").value = "";
+          document.getElementById("noteFile").value = "";
+          if (status) status.textContent = "تم النشر بنجاح ويمكن للطلاب رؤيتها الآن.";
           loadNotes();
-        } catch (err) {
-          showBanner("❌ فشل إنشاء المسودة: " + (err && err.message ? err.message : err));
-          alert("تعذر إنشاء المسودة بسبب مشكلة في السيرفر");
-        }
-      }
-
-      async function approveDraft() {
-        if (!currentDraft) return alert("لا توجد مسودة جاهزة للقبول");
-        const title =
-          document.getElementById("noteTitle").value.trim() ||
-          currentDraft.title;
-        const branch =
-          document.getElementById("noteBranch").value || currentDraft.branch;
-        const draftPayload = currentDraft.aiDraft
-          ? JSON.parse(currentDraft.aiDraft)
-          : {};
-
-        try {
-          const res = await fetch("/api/admin/notes/approve", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-admin-token": adminToken,
-            },
-            body: JSON.stringify({
-              id: currentDraft.id,
-              title,
-              subjectKey: currentDraft.subjectKey,
-              subjectName: currentDraft.subjectName,
-              ownerName: currentDraft.ownerName,
-              branch,
-              content: draftPayload,
-              sourceText: draftPayload.sourceText || "",
-              warnings: draftPayload.warnings || [],
-            }),
-          });
-          const data = await res.json();
-          if (!res.ok || !data.success) {
-            alert(data.message || "تعذر اعتماد المذكرة");
-            return;
-          }
-          alert("تم اعتماد المذكرة ونشرها داخل المنصة ✅");
-          loadNotes();
-        } catch (err) {
-          alert("حدث خطأ أثناء اعتماد المذكرة");
+        } catch (error) {
+          if (status) status.textContent = error.message || "تعذر رفع المذكرة";
+          alert(error.message || "تعذر الاتصال بالسيرفر");
+        } finally {
+          if (button) { button.disabled = false; button.textContent = "حفظ ونشر المذكرة 📤"; }
         }
       }
 
@@ -1411,8 +1222,6 @@
           list.innerHTML = '<div class="note-empty-state">تعذر تحميل المذكرات من السيرفر</div>';
         }
       }
-
-      let currentDraft = null;
 
       function resetAll() {
         if (confirm("هل أنت متأكد من حذف كل شيء؟")) {

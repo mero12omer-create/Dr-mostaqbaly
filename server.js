@@ -1378,6 +1378,44 @@ app.post("/api/notes", requireAdmin, (req, res) => {
   );
 });
 
+// رفع مذكرة عادية ونشرها مباشرة بدون استخراج نص أو إنشاء مسودة بالذكاء الاصطناعي.
+app.post(
+  "/api/admin/notes/upload",
+  requireAdmin,
+  upload.single("noteFile"),
+  async (req, res) => {
+    try {
+      const title = normalizeText(req.body.title || "");
+      const ownerName = normalizeText(req.body.ownerName || "");
+      const branch = normalizeBranch(req.body.branch);
+      const subjectKey = normalizeSubjectKey(req.body.subjectKey);
+      const subjectName = getSubjectLabel(subjectKey, branch, req.body.subjectName);
+      const subjectGroup = getSubjectGroup(subjectKey, branch);
+
+      if (!title) return res.status(400).json({ success: false, message: "عنوان المذكرة مطلوب" });
+      if (!ownerName) return res.status(400).json({ success: false, message: "اسم صاحب المذكرة مطلوب" });
+      if (!req.file) return res.status(400).json({ success: false, message: "اختر ملف المذكرة أولاً" });
+
+      const storedPath = await uploadLocalFileToStorage(req.file.path, req.file.originalname);
+      const size = normalizeText(req.body.size || `${(req.file.size / (1024 * 1024)).toFixed(2)} MB`);
+      fs.unlink(req.file.path, () => {});
+
+      db.run(
+        `INSERT INTO notes (title, subjectKey, subjectName, subjectGroup, ownerName, size, fileUrl, branch, isDraft) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+        [title, subjectKey, subjectName, subjectGroup, ownerName, size, storedPath, branch],
+        function (err) {
+          if (err) return res.status(500).json({ success: false, message: "تعذر حفظ المذكرة" });
+          return res.status(201).json({ success: true, id: this.lastID, message: "تم رفع المذكرة ونشرها للطلاب" });
+        },
+      );
+    } catch (error) {
+      if (req.file?.path) fs.unlink(req.file.path, () => {});
+      console.log("خطأ في رفع المذكرة:", error);
+      return res.status(500).json({ success: false, message: "حدث خطأ أثناء رفع المذكرة" });
+    }
+  },
+);
+
 app.post(
   "/api/admin/notes/generate",
   requireAdmin,
