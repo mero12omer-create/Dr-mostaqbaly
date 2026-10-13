@@ -199,13 +199,14 @@
       }
 
       async function renderNotes() {
-        const localNotes = (() => {
-          try { return JSON.parse(localStorage.getItem("notesData")) || []; }
-          catch { return []; }
-        })();
+        const localNotes = []; // لا نعرض مذكرات محلية تتجاوز التحقق من الجلسة
 
         try {
-          const res = await fetch(`/api/notes?branch=${encodeURIComponent(currentBranch)}`);
+          const token = localStorage.getItem("studentAuthToken");
+          if (!token) { window.location.href = "login.html"; return; }
+          const res = await fetch(`/api/notes?branch=${encodeURIComponent(currentBranch)}`, {headers:{"x-student-token":token}});
+          if (res.status === 401) { window.location.href = "login.html"; return; }
+          if (!res.ok) throw Error("تعذر جلب المذكرات");
           const data = await res.json();
           if (data.success) serverNotes = data.notes || [];
         } catch (error) {
@@ -237,7 +238,7 @@
         filtered.forEach((note) => {
           const fileUrl = note.fileUrl || note.file_url || "";
           const subjectName = note.subjectName || note.subject_name || SubjectCatalog.getSubjectLabel(note.subjectKey, currentBranch, "مادة");
-          const size = note.size || "غير محدد";
+          const size = note.size || "";
           const card = document.createElement("div");
           card.className = "pdf-card reveal-card";
           card.innerHTML = `
@@ -245,7 +246,7 @@
               <div class="pdf-icon-box">📄</div>
               <div class="pdf-info">
                 <h3>${escapeHtml(note.title || "مذكرة")}</h3>
-                <p>المادة: ${escapeHtml(subjectName)} | الحجم: ${escapeHtml(size)}</p>
+                <p>المادة: ${escapeHtml(subjectName)} | ${escapeHtml(size)}</p>
                 <p class="note-owner">صاحب المذكرة: ${escapeHtml(note.ownerName || "غير محدد")}</p>
               </div>
             </div>

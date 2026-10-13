@@ -106,7 +106,7 @@ app.use((req, res, next) => {
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
 app.use(express.json({ limit: "25mb" }));
 // لا نعرض ملفات الرفع الخام أو مسودات الأدمن؛ الملف يصبح متاحاً بعد اعتماد المذكرة فقط.
-app.get("/uploads/:filename", (req, res) => {
+app.get("/uploads/:filename", requireStudentAuth, (req, res) => {
   const filename = path.basename(String(req.params.filename || ""));
   if (!filename || filename !== req.params.filename) return res.status(404).end();
   const fileUrl = `/uploads/${filename}`;
@@ -800,6 +800,9 @@ app.post("/api/exams/:examId/submit", requireStudentAuth, pointsLimiter, (req, r
           db.run(`UPDATE users SET points = ? WHERE phone = ?`, [newPoints, req.studentPhone], (updateErr) => {
             if (updateErr) return res.status(500).json({ success: false, message: "تعذر تحديث نقاط الطالب" });
             if (score > 0) checkAndIssueCertificates(req.studentPhone, user, newPoints);
+            if (totalPoints > 0 && score / totalPoints >= Number(process.env.HIGH_SCORE_THRESHOLD || 0.9)) {
+              notifyAdminHighScore({name:user.name, phone:req.studentPhone, exam:exam.lessonTitle, score, totalPoints});
+            }
             const rank = getRankTitle(newPoints);
             res.status(200).json({ success: true, score, totalPoints, correctCount, newPoints, rank, message: `تم تصحيح الامتحان وإضافة ${score} نقطة بشكل آمن.` });
           });
@@ -808,6 +811,16 @@ app.post("/api/exams/:examId/submit", requireStudentAuth, pointsLimiter, (req, r
     });
   });
 });
+
+// Notification is optional and must not block exam submission.
+function notifyAdminHighScore({name, phone, exam, score, totalPoints}) {
+  const recipient = process.env.ADMIN_NOTIFICATION_EMAIL;
+  if (!recipient || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) return;
+  transporter.sendMail({from:process.env.EMAIL_USER,to:recipient,
+    subject:"طالب متفوق - دكتور مستقبلي",
+    text:`الطالب: ${name}\nرقم الطالب: ${phone}\nالامتحان: ${exam}\nالنتيجة: ${score}/${totalPoints} (${Math.round(score / totalPoints * 100)}%)`
+  }).catch(err => console.error("High-score notification failed:",err.message));
+}
 
 // 3. تحديث النقاط وحساب الألقاب وإرسال إيميل عند الوصول لـ 500 نقطة
 app.post("/api/update-points", requireStudentAuth, pointsLimiter, (req, res) => {
@@ -998,7 +1011,13 @@ app.get("/api/profile", requireStudentAuth, (req, res) => {
          FROM certificates WHERE phone = ?`,
       [phone, phone],
       (cerr, crow) => {
-        res.status(200).json({
+        db.all(`SELECT DISTINCT DATE(created_at) AS day FROM exam_attempts WHERE phone = ? ORDER BY day DESC LIMIT 366`, [phone], (serr, days) => {
+          const dates = new Set((days || []).map(x => (x.day instanceof Date ? x.day.toISOString().slice(0,10) : String(x.day).slice(0,10))));
+          const day = (offset) => { const d = new Date(); d.setUTCHours(0,0,0,0); d.setUTCDate(d.getUTCDate()-offset); return d.toISOString().slice(0,10); };
+          let streak = 0;
+          let offset = dates.has(day(0)) ? 0 : 1;
+          while (dates.has(day(offset))) { streak++; offset++; }
+          res.status(200).json({
           success: true,
           user: {
             name: user.name,
@@ -1009,7 +1028,9 @@ app.get("/api/profile", requireStudentAuth, (req, res) => {
             rankTitle: rankTitle,
             certificatesCount: crow ? crow.cnt : 0,
             examsCompleted: crow ? crow.examsCompleted : 0,
+            streak,
           },
+        });
         });
       },
     );
@@ -1357,31 +1378,37 @@ async function extractTextFromFile(filePath, originalName) {
   return "";
 }
 
-app.post("/api/notes", requireAdmin, (req, res) => {
-  const noteBranch = normalizeBranch(req.body.branch);
+// Google Drive links only; never accept arbitrary schemes or hosts.
+function validDriveLink(value) {
+  try {
+    const url = new URL(String(value || ""));
+    return url.protocol === "https:" && ["drive.google.com", "docs.google.com"].includes(url.hostname) &&
+      (url.hostname === "drive.google.com" ? /^\/(file\/d\/|open|uc|drive\/folders\/)/.test(url.pathname) : /^\/(document|spreadsheets|presentation)\/d\//.test(url.pathname));
+  } catch (_) { return false; }
+}
+app.post("/api/admin/notes/drive", requireAdmin, (req, res) => {
+  const { title, lessonTitle, fileUrl, ownerName } = req.body;
+  if (!normalizeText(title) || !normalizeText(lessonTitle) || !validDriveLink(fileUrl))
+    return res.status(400).json({ success: false, message: "أدخل عنوان المذكرة والدرس ورابط Google Drive صحيح" });
+  const branch = normalizeBranch(req.body.branch);
   const subjectKey = normalizeSubjectKey(req.body.subjectKey);
-  const subjectName = getSubjectLabel(subjectKey, noteBranch, req.body.subjectName);
-  const subjectGroup = getSubjectGroup(subjectKey, noteBranch);
-  const { title, size, fileUrl } = req.body;
-  const ownerName = normalizeText(req.body.ownerName || "دكتور مستقبلي");
-  db.run(
-    `INSERT INTO notes (title, subjectKey, subjectName, subjectGroup, ownerName, size, fileUrl, branch) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [title, subjectKey, subjectName, subjectGroup, ownerName, size, fileUrl, noteBranch],
-    function (err) {
-      if (err) {
-        return res
-          .status(500)
-          .json({ success: false, message: "خطأ في حفظ المذكرة" });
-      }
-      res.status(200).json({ success: true, id: this.lastID });
-    },
-  );
+  const subjectName = getSubjectLabel(subjectKey, branch, req.body.subjectName);
+  const subjectGroup = getSubjectGroup(subjectKey, branch);
+  db.run(`INSERT INTO notes (title, subjectKey, subjectName, subjectGroup, ownerName, size, fileUrl, branch) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [normalizeText(title), subjectKey, subjectName, subjectGroup, normalizeText(ownerName || "دكتور مستقبلي"), "الدرس: " + normalizeText(lessonTitle), fileUrl, branch],
+    function (err) { if (err) return res.status(500).json({ success: false, message: "تعذر حفظ المذكرة" }); res.json({ success: true, id: this.lastID }); });
+});
+
+// Legacy direct note creation disabled: use validated Google Drive links only.
+app.post("/api/notes", requireAdmin, (req, res) => {
+  res.status(410).json({success:false,message:"تم إيقاف إضافة المذكرات القديمة. استخدم رابط Google Drive."});
 });
 
 // رفع مذكرة عادية ونشرها مباشرة بدون استخراج نص أو إنشاء مسودة بالذكاء الاصطناعي.
 app.post(
   "/api/admin/notes/upload",
   requireAdmin,
+  (req, res) => res.status(410).json({success:false,message:"رفع الملفات متوقف؛ استخدم روابط Google Drive"}),
   upload.single("noteFile"),
   async (req, res) => {
     try {
@@ -1948,6 +1975,32 @@ app.get("/api/admin/users", requireAdmin, (req, res) => {
   );
 });
 
+// Export every student's exam attempts (admin-only); Excel opens the UTF-8 CSV.
+app.get("/api/admin/results.csv", requireAdmin, (req, res) => {
+  db.all(`SELECT u.name, u.phone, u.email, u.branch, u.points,
+                 e.lessonTitle AS exam_title, e.subjectName AS subject,
+                 a.score, a.total_points, a.correct_count, a.created_at
+          FROM users u
+          LEFT JOIN exam_attempts a ON a.phone = u.phone
+          LEFT JOIN exams e ON e.id = a.exam_id
+          ORDER BY u.name ASC, a.created_at DESC`, [], (err, rows) => {
+    if (err) return res.status(500).json({ success: false, message: "تعذر تصدير النتائج" });
+    const csvCell = (value) => {
+      let str = String(value == null ? "" : value);
+      // Prevent spreadsheet formula execution when opening exported student data.
+      if (/^[\s]*[=+@-]/.test(str)) str = "'" + str;
+      return '"' + str.replace(/"/g, '""') + '"';
+    };
+    const columns = ["الطالب", "الهاتف", "البريد", "الفرع", "النقاط", "الامتحان", "المادة", "الدرجة", "الدرجة النهائية", "الإجابات الصحيحة", "التاريخ"];
+    const csv = [columns, ...(rows || []).map(r => [r.name, r.phone, r.email, r.branch, r.points, r.exam_title, r.subject, r.score, r.total_points, r.correct_count, r.created_at])]
+      .map(row => row.map(csvCell).join(",")).join("\r\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", 'attachment; filename="students-results.csv"');
+    res.setHeader("Cache-Control", "no-store");
+    res.send("\uFEFF" + csv);
+  });
+});
+
 app.get("/api/admin/users/:phone", requireAdmin, (req, res) => {
   const phone = normalizeText(req.params.phone);
   db.get(
@@ -2062,7 +2115,7 @@ app.get("/api/admin/notes", requireAdmin, (req, res) => {
   });
 });
 
-app.get("/api/notes", requireStudentSession, (req, res) => {
+app.get("/api/notes", requireStudentAuth, (req, res) => {
   const userBranch = req.userBranch || getUserBranchFromRequest(req);
   db.all(
     `SELECT * FROM notes WHERE (isDraft IS NULL OR isDraft = 0) AND (branch = ? OR branch = 'مشترك') ORDER BY created_at DESC`,
