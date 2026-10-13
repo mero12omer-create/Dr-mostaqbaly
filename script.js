@@ -532,6 +532,8 @@ async function initProfilePage() {
       if (elPoints) elPoints.innerText = u.points;
       if (elBadge) elBadge.innerText = u.rankTitle || "🏅 طالب جديد";
       if (elCerts) elCerts.innerText = u.certificatesCount;
+      const streakEl = document.getElementById("userStreak");
+      if (streakEl) streakEl.textContent = Number(u.streak || 0);
 
       // حساب التقدم نحو اللقب التالي
       const nextMilestone = u.points < 100 ? 100 : u.points < 300 ? 300 : u.points < 600 ? 600 : 1000;

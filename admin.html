@@ -432,6 +432,13 @@
           </div>
         </div>
 
+      <div class="admin-card" style="margin:18px 0"><h3>⚡ إضافة أسئلة جماعية</h3>
+        <p>اختر المادة والفرع واكتب اسم الدرس من نموذج إضافة السؤال اليدوي أعلاه، ثم الصق الأسئلة هنا.</p>
+        <textarea id="bulkQuestions" rows="12" style="width:100%;padding:12px" placeholder="س1: نص السؤال&#10;A) الاختيار الأول&#10;B) الاختيار الثاني&#10;C) الاختيار الثالث&#10;D) الاختيار الرابع&#10;ANSWER: B&#10;---&#10;س2: ..."></textarea>
+        <button class="btn-main" type="button" onclick="previewBulkQuestions()">معاينة الأسئلة</button>
+        <div id="bulkPreview" style="white-space:pre-wrap;margin:12px 0" aria-live="polite"></div>
+        <button id="bulkSave" class="btn-main" type="button" onclick="saveBulkQuestions()" disabled>حفظ كل الأسئلة المعتمدة</button>
+      </div>
         <div class="admin-card">
           <h3>إضافة درس/سؤال جديد (يدوي) 📝</h3>
           <div class="form-group">
@@ -516,15 +523,9 @@
                 <label for="noteOwnerName">اسم صاحب المذكرة:</label>
                 <input type="text" id="noteOwnerName" placeholder="مثال: أ/ محمد أحمد" maxlength="120" />
               </div>
-              <div class="form-group">
-                <label for="noteFile">ملف المذكرة (PDF أو Word أو TXT أو صورة):</label>
-                <input type="file" id="noteFile" accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.webp" />
-              </div>
-              <div class="form-group">
-                <label for="noteSize">حجم الملف (اختياري):</label>
-                <input type="text" id="noteSize" placeholder="سيتم حسابه تلقائياً إذا تركته فارغاً" />
-              </div>
-              <button id="uploadNoteBtn" class="btn-main">حفظ ونشر المذكرة 📤</button>
+              <div class="form-group"><label for="noteLesson">اسم الدرس:</label><input id="noteLesson" type="text" maxlength="180" placeholder="مثال: الجهاز العصبي" /></div>
+              <div class="form-group"><label for="noteDriveUrl">رابط Google Drive:</label><input id="noteDriveUrl" type="url" placeholder="https://drive.google.com/file/d/.../view" dir="ltr" /></div>
+              <button id="uploadNoteBtn" class="btn-main">حفظ رابط المذكرة 🔗</button>
               <div id="noteUploadStatus" style="font-size: 13px; color: gray; margin-top: 10px"></div>
             </div>
           </div>
@@ -545,6 +546,7 @@
       </div>
 
       <div id="studentsTab" class="tab-content" style="display: none">
+        <button class="btn-main" type="button" onclick="downloadStudentsResults()" style="margin:12px 0">📊 تنزيل جدول كل الطلاب ودرجات الامتحانات (Excel/CSV)</button>
         <div class="admin-card">
           <h3>👨‍🎓 إدارة حساب طالب</h3>
           <div class="form-group">
@@ -894,6 +896,22 @@
         }));
       }
 
+      async function downloadStudentsResults() {
+        try {
+          const response = await fetch("/api/admin/results.csv", { headers: { "x-admin-token": adminToken } });
+          if (!response.ok) throw new Error("تعذر تنزيل التقرير؛ تأكد من تسجيل دخول الأدمن");
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = "students-results.csv";
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (error) { alert(error.message); }
+      }
+
       async function loadStudents() {
         const list = document.getElementById("studentsList");
         if (!list) return;
@@ -1044,6 +1062,50 @@
         }
       }
 
+      let parsedBulkQuestions = [];
+      function parseBulkQuestions(input) {
+        const chunks = input.trim().split(/(?:^|\n)\s*---+\s*(?=\n|$)/m).map(x=>x.trim()).filter(Boolean);
+        return chunks.map((chunk, index) => {
+          const lines = chunk.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+          const question = (lines.shift() || "").replace(/^(?:س\s*\d+|Q\s*\d+)\s*[:.)-]\s*/i, "");
+          const options = []; let answer = null;
+          for (const line of lines) {
+            const match = line.match(/^([A-Da-dأبجدهـ])\s*[).:\-]\s*(.+)$/);
+            if (match) { options.push({key:match[1], value:match[2]}); continue; }
+            const a = line.match(/^(?:ANSWER|الإجابة(?:\s*الصحيحة)?)\s*[:：-]\s*([A-Da-dأبجد]|[1-4])\s*$/i);
+            if (a) answer = a[1];
+          }
+          const latin = {a:0,b:1,c:2,d:3}; const arabic={"أ":0,"ا":0,"ب":1,"ج":2,"د":3};
+          const correct = /^[1-4]$/.test(answer || "") ? Number(answer)-1 : (latin[String(answer).toLowerCase()] ?? arabic[answer]);
+          if (!question || options.length !== 4 || correct === undefined || correct < 0 || correct > 3)
+            throw Error(`السؤال ${index+1}: تأكد من النص و4 اختيارات وإجابة صحيحة`);
+          return {q:question,options:options.map(x=>x.value),correct,exp:""};
+        });
+      }
+      function previewBulkQuestions() {
+        const box = document.getElementById("bulkPreview");
+        parsedBulkQuestions = []; document.getElementById("bulkSave").disabled = true;
+        try {
+          parsedBulkQuestions = parseBulkQuestions(document.getElementById("bulkQuestions").value);
+          if (!parsedBulkQuestions.length) throw Error("الصق سؤالاً واحداً على الأقل");
+          box.textContent = parsedBulkQuestions.map((q,i)=>`${i+1}. ${q.q}\n${q.options.map((o,j)=>`${"ABCD"[j]}) ${o}`).join("\n")}\nالإجابة: ${"ABCD"[q.correct]}`).join("\n\n");
+          document.getElementById("bulkSave").disabled = false;
+        } catch(e) { box.textContent = "⚠️ " + e.message; }
+      }
+      async function saveBulkQuestions() {
+        const subjectKey = document.getElementById("examSubSelect").value;
+        const branch = document.getElementById("examBranch").value;
+        const lessonTitle = document.getElementById("lessonTitle").value.trim();
+        if (!lessonTitle || !subjectKey || !parsedBulkQuestions.length) return alert("حدد المادة والدرس وراجع الأسئلة");
+        const button = document.getElementById("bulkSave"); button.disabled = true;
+        try {
+          const res = await fetch("/api/exams",{method:"POST",headers:{"Content-Type":"application/json","x-admin-token":adminToken},body:JSON.stringify({subjectKey,subjectName:SUBJECTS[subjectKey],branch,lessonTitle,content:parsedBulkQuestions})});
+          const data = await res.json(); if (!res.ok || !data.success) throw Error(data.message || "فشل الحفظ");
+          alert(`تم حفظ ${parsedBulkQuestions.length} سؤالاً بنجاح`);
+          document.getElementById("bulkQuestions").value=""; document.getElementById("bulkPreview").textContent=""; parsedBulkQuestions=[];
+        } catch(e) { alert(e.message); button.disabled=false; }
+      }
+
       // حفظ الامتحانات
       async function addExamContent() {
         const sub = document.getElementById("examSubSelect").value;
@@ -1105,52 +1167,28 @@
         }
       }
 
-      // رفع المذكرة ونشرها مباشرة بدون إنشاء مسودة أو معالجة بالذكاء الاصطناعي
       async function uploadNote() {
-        const subjectKey = document.getElementById("noteSubSelect")?.value;
-        const branch = document.getElementById("noteBranch")?.value || "عام";
-        const title = document.getElementById("noteTitle")?.value.trim();
-        const ownerName = document.getElementById("noteOwnerName")?.value.trim();
-        const file = document.getElementById("noteFile")?.files?.[0];
+        const subjectKey = document.getElementById("noteSubSelect").value;
+        const branch = document.getElementById("noteBranch").value;
+        const title = document.getElementById("noteTitle").value.trim();
+        const ownerName = document.getElementById("noteOwnerName").value.trim();
+        const lessonTitle = document.getElementById("noteLesson").value.trim();
+        const fileUrl = document.getElementById("noteDriveUrl").value.trim();
         const status = document.getElementById("noteUploadStatus");
         const button = document.getElementById("uploadNoteBtn");
-
-        if (!title) return alert("اكتب عنوان المذكرة أولاً");
-        if (!ownerName) return alert("اكتب اسم صاحب المذكرة أولاً");
-        if (!file) return alert("اختر ملف المذكرة أولاً");
-
-        const formData = new FormData();
-        formData.append("title", title);
-        formData.append("subjectKey", subjectKey);
-        formData.append("subjectName", SUBJECTS[subjectKey] || "مادة");
-        formData.append("branch", branch);
-        formData.append("ownerName", ownerName);
-        formData.append("size", document.getElementById("noteSize")?.value.trim() || `${(file.size / (1024 * 1024)).toFixed(2)} MB`);
-        formData.append("noteFile", file);
-
-        if (status) status.textContent = "جاري رفع المذكرة ونشرها...";
-        if (button) { button.disabled = true; button.textContent = "جاري الرفع... ⏳"; }
+        if (!title || !lessonTitle || !fileUrl) return alert("أكمل عنوان المذكرة والدرس ورابط Google Drive");
+        button.disabled = true;
         try {
-          const res = await fetch("/api/admin/notes/upload", {
-            method: "POST",
-            headers: { "x-admin-token": adminToken },
-            body: formData,
-          });
+          const res = await fetch("/api/admin/notes/drive", {method:"POST", headers:{"Content-Type":"application/json","x-admin-token":adminToken}, body:JSON.stringify({subjectKey,subjectName:SUBJECTS[subjectKey],branch,title,ownerName,lessonTitle,fileUrl})});
           const data = await res.json();
-          if (!res.ok || !data.success) throw new Error(data.message || "تعذر نشر المذكرة");
-          alert("تم رفع المذكرة ونشرها للطلاب بنجاح ✅");
+          if (!res.ok || !data.success) throw Error(data.message || "تعذر حفظ المذكرة");
           document.getElementById("noteTitle").value = "";
-          document.getElementById("noteOwnerName").value = "";
-          document.getElementById("noteSize").value = "";
-          document.getElementById("noteFile").value = "";
-          if (status) status.textContent = "تم النشر بنجاح ويمكن للطلاب رؤيتها الآن.";
+          document.getElementById("noteLesson").value = "";
+          document.getElementById("noteDriveUrl").value = "";
+          status.textContent = "تم نشر الرابط بنجاح";
           loadNotes();
-        } catch (error) {
-          if (status) status.textContent = error.message || "تعذر رفع المذكرة";
-          alert(error.message || "تعذر الاتصال بالسيرفر");
-        } finally {
-          if (button) { button.disabled = false; button.textContent = "حفظ ونشر المذكرة 📤"; }
-        }
+        } catch (e) { status.textContent = e.message; alert(e.message); }
+        finally { button.disabled = false; }
       }
 
       function initAdminNotesFilters() {
