@@ -1,7 +1,5 @@
-// ==========================================
-// دكتور مستقبلي 🩺 - Script.js المطور
-// ==========================================
-
+// ===================================// دكتور مستقبلي 🩺 - Script.js المطور
+// ===================================
 document.addEventListener("DOMContentLoaded", function () {
   // ------------------------------------------
   // 1. الدارك مود والقائمة الجانبية
@@ -52,13 +50,22 @@ document.addEventListener("DOMContentLoaded", function () {
   // -----------------------------------       -------
   // 2. التحقق الذكي من تسجيل الدخول عند التصفح
   // ------------------------------------------
-  const loggedInPhone = localStorage.getItem("loggedInUserPhone");
-  const loggedInEmail = localStorage.getItem("userEmail");
-  const isLoggedIn = loggedInPhone || loggedInEmail;
+  const studentToken = localStorage.getItem("studentAuthToken");
+  const isLoggedIn = Boolean(studentToken);
 
   const currentPath = window.location.pathname.toLowerCase();
   const isAuthPage =
     currentPath.includes("login") || currentPath.includes("signup");
+
+  // الملف الشخصي خاص بالطالب المسجل فقط، ولا نعتمد على بيانات localStorage وحدها.
+  document.querySelectorAll('a[href*="profile.html"]').forEach((link) => {
+    link.addEventListener("click", (event) => {
+      if (!localStorage.getItem("studentAuthToken")) {
+        event.preventDefault();
+        window.location.href = "login.html?next=profile.html";
+      }
+    });
+  });
 
   // ------------------------------------------
   // 3. توجيه أزرار "ابدأ الآن مجاناً" 🚀
@@ -112,9 +119,15 @@ document.addEventListener("DOMContentLoaded", function () {
       const branchInput = document.getElementById("branch");
       const branch = branchInput ? branchInput.value : "عام";
       const otpCode = otpCodeInput ? otpCodeInput.value.trim() : "";
+      const submitBtn = signupForm.querySelector('button[type="submit"]');
 
       if (!name || !phone || !email || !password) {
         alert("يرجى تعبئة جميع الحقول أولاً");
+        return;
+      }
+
+      if (!/^01[0125][0-9]{8}$/.test(phone)) {
+        alert("اكتب رقم موبايل مصري صحيح من 11 رقمًا");
         return;
       }
 
@@ -134,6 +147,7 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       try {
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "جاري إنشاء الحساب..."; }
         const otpRes = await fetch("/api/verify-otp", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -158,7 +172,8 @@ document.addEventListener("DOMContentLoaded", function () {
           localStorage.setItem("loggedInUserPhone", phone);
           localStorage.setItem("userBranch", branch);
           if (data.token) localStorage.setItem("studentAuthToken", data.token);
-          window.location.href = "index.html";
+          const next = new URLSearchParams(window.location.search).get("next");
+          window.location.href = next === "profile.html" ? "profile.html" : "index.html";
         } else {
           alert(
             data.message || "حدث خطأ أثناء إنشاء الحساب، برجاء المحاولة مجدداً",
@@ -167,6 +182,8 @@ document.addEventListener("DOMContentLoaded", function () {
       } catch (err) {
         console.warn("تعذر إنشاء الحساب على الخادم:", err);
         alert("تعذر الاتصال بالخادم، ولم يتم إنشاء الحساب. حاول مرة أخرى.");
+      } finally {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "سجل الآن"; }
       }
     });
   }
@@ -182,8 +199,15 @@ document.addEventListener("DOMContentLoaded", function () {
       const passwordInput = document.getElementById("password");
       const phone = phoneInput ? phoneInput.value.trim() : "";
       const password = passwordInput ? passwordInput.value : "";
+      const submitBtn = loginForm.querySelector('button[type="submit"]');
+
+      if (!/^01[0125][0-9]{8}$/.test(phone)) {
+        alert("اكتب رقم موبايل مصري صحيح من 11 رقمًا");
+        return;
+      }
 
       try {
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "جاري الدخول..."; }
         const res = await fetch("/api/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -201,13 +225,16 @@ document.addEventListener("DOMContentLoaded", function () {
             localStorage.setItem("userBranch", data.user.branch);
           if (data.user.points)
             localStorage.setItem("userPoints", data.user.points);
-          window.location.href = "index.html";
+          const next = new URLSearchParams(window.location.search).get("next");
+          window.location.href = next === "profile.html" ? "profile.html" : "index.html";
         } else {
           alert(data.message || "رقم الهاتف غير مسجل");
         }
       } catch (err) {
         console.warn("تعذر تسجيل الدخول على الخادم:", err);
         alert("تعذر الاتصال بالخادم، ولم يتم تسجيل الدخول. حاول مرة أخرى.");
+      } finally {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "دخول"; }
       }
     });
   }
@@ -326,10 +353,8 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 
-// ==========================================
-// الوظائف العامة (Global Functions)
-// ==========================================
-
+// ===================================// الوظائف العامة (Global Functions)
+// ===================================
 function updateChatStatus(status, isError = false) {
   const statusEl = document.getElementById("chatStatus");
   if (!statusEl) return;
@@ -505,6 +530,11 @@ function performSearch() {
 }
 
 async function initProfilePage() {
+  const token = localStorage.getItem("studentAuthToken");
+  if (!token) {
+    window.location.replace("login.html?next=profile.html");
+    return;
+  }
   const savedName = localStorage.getItem("userName") || "دكتور مستقبلي";
   const savedPhone = localStorage.getItem("loggedInUserPhone") || "غير محدد";
 
@@ -531,8 +561,6 @@ async function initProfilePage() {
 
   // جلب بيانات النقاط واللقب من السيرفر عبر جلسة الطالب فقط
   try {
-    const token = localStorage.getItem("studentAuthToken");
-    if (!token) { window.location.href = "login.html"; return; }
     const res = await fetch("/api/profile", {
       headers: { "x-student-token": token },
     });
@@ -542,6 +570,11 @@ async function initProfilePage() {
       return;
     }
     const data = await res.json();
+    if (res.status === 401 || !data.success) {
+      localStorage.clear();
+      window.location.replace("login.html?next=profile.html");
+      return;
+    }
     if (data.success && data.user) {
       const u = data.user;
       if (elPoints) elPoints.innerText = u.points;
@@ -635,9 +668,7 @@ async function loadLeaderboard() {
   }
 }
 
-// ========================================
-// تفاعل 3D حقيقي مع حركة الماوس/اللمس على البطاقات (.card-item, .tilt-3d)
-// ========================================
+// =================================// تفاعل 3D حقيقي مع حركة الماوس/اللمس على البطاقات (.card-item, .tilt-3d)
 (function initTilt3D() {
   const prefersReducedMotion =
     window.matchMedia &&

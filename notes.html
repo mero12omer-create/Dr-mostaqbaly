@@ -251,8 +251,8 @@
               </div>
             </div>
             <div class="pdf-actions">
-              <button class="btn-action btn-read" data-url="${escapeHtml(fileUrl)}">فتح / قراءة 👁️</button>
-              <button class="btn-action btn-download" data-url="${escapeHtml(fileUrl)}">تحميل 📥</button>
+              <button class="btn-action btn-read" data-url="${escapeHtml(fileUrl)}">فتح المذكرة 👁️</button>
+              <button class="btn-action btn-download" data-url="${escapeHtml(fileUrl)}">عرض / تحميل من Drive 📥</button>
             </div>`;
           card.querySelector(".btn-read").addEventListener("click", () => openPdf(fileUrl));
           card.querySelector(".btn-download").addEventListener("click", () => downloadPdf(fileUrl));
@@ -285,19 +285,14 @@
       }
 
       function openPdf(url) {
-        if (!url) return alert("رابط الملف غير صالح!");
+        if (!url) return alert("رابط المذكرة غير صالح!");
         window.open(url, "_blank", "noopener,noreferrer");
       }
 
       function downloadPdf(url) {
-        if (!url) return alert("رابط الملف غير صالح!");
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "";
-        a.rel = "noopener";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+        if (!url) return alert("رابط المذكرة غير صالح!");
+        // Google Drive يتحكم في المشاهدة/التحميل حسب صلاحية الرابط.
+        window.open(url, "_blank", "noopener,noreferrer");
       }
 
       window.addEventListener("DOMContentLoaded", () => {

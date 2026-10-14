@@ -389,7 +389,12 @@
             />
           </div>
           <div class="form-group">
-            <label>ارفع صورة/ملف الأسئلة (يمكن اختيار أكثر من ملف):</label>
+            <label for="aiExamRawText">الصق الأسئلة دفعة واحدة (حتى 100 سؤال):</label>
+            <textarea id="aiExamRawText" rows="12" placeholder="السؤال:\nما عاصمة مصر؟\n\nأ:\nالقاهرة\n\nب:\nالإسكندرية\n\nج:\nالأقصر\n\nد:\nأسوان\n\nالإجابة الصحيحة:\nأ\n\nالشرح:\nالقاهرة هي عاصمة جمهورية مصر العربية.\n\nالسؤال:\n..."></textarea>
+            <small style="display:block; color:gray; margin-top:6px; line-height:1.7">يمكنك لصق 100 سؤال بنفس النموذج. اتركه فارغاً إذا كنت ستستخدم الملفات فقط.</small>
+          </div>
+          <div class="form-group">
+            <label>أو ارفع صورة/ملف الأسئلة (يمكن اختيار أكثر من ملف):</label>
             <input
               type="file"
               id="aiExamFiles"
@@ -498,8 +503,8 @@
         <div class="admin-card">
           <h3>📚 إضافة مذكرة جديدة</h3>
           <p style="font-size: 13px; color: gray; line-height: 1.8">
-            ارفع ملف المذكرة كما هو. سيتم نشره مباشرة للطلاب بعد الحفظ بدون
-            إنشاء مسودة أو معالجة بالذكاء الاصطناعي.
+            ضع رابط Google Drive للمذكرة. سيتم عرضها للطلاب في بطاقة مرتبة،
+            وعند الضغط عليها يقدر الطالب يشاهدها أو يحملها من Drive.
           </p>
           <div class="note-manager-layout">
             <div class="note-panel">
@@ -706,10 +711,8 @@
         sync();
       }
 
-      // ========================================
-      // استخراج أسئلة بالذكاء الاصطناعي من صور/ملفات + المراجعة والنشر
-      // ========================================
-      let currentExamDraft = null; // { draftId, subjectKey, subjectName, lessonTitle, branch, questions }
+      // =================================      // استخراج أسئلة بالذكاء الاصطناعي من صور/ملفات + المراجعة والنشر
+      // =================================      let currentExamDraft = null; // { draftId, subjectKey, subjectName, lessonTitle, branch, questions }
 
       async function generateExamQuestions() {
         const subjectKey = document.getElementById("aiExamSubSelect").value;
@@ -717,12 +720,13 @@
         const lessonTitle = document
           .getElementById("aiLessonTitle")
           .value.trim();
+        const rawText = document.getElementById("aiExamRawText")?.value.trim() || "";
         const filesInput = document.getElementById("aiExamFiles");
         const statusBox = document.getElementById("aiExamStatus");
 
         if (!lessonTitle) return alert("أدخل اسم الدرس أولاً");
-        if (!filesInput.files || filesInput.files.length === 0) {
-          return alert("ارفع صورة أو ملف أسئلة أولاً");
+        if (!rawText && (!filesInput.files || filesInput.files.length === 0)) {
+          return alert("الصق نص الأسئلة أو ارفع صورة/ملف أسئلة أولاً");
         }
 
         const formData = new FormData();
@@ -730,6 +734,7 @@
         formData.append("subjectName", SUBJECTS[subjectKey]);
         formData.append("branch", branch);
         formData.append("lessonTitle", lessonTitle);
+        if (rawText) formData.append("rawText", rawText);
         Array.from(filesInput.files).forEach((f) =>
           formData.append("sourceFiles", f),
         );
@@ -778,12 +783,14 @@
 
         list.innerHTML = currentExamDraft.questions
           .map((q, qIdx) => {
+            const optionLetters = ["أ", "ب", "ج", "د"];
             const optionsHtml = q.options
               .map(
                 (opt, oIdx) => `
                 <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
                   <input type="radio" name="correct_${qIdx}" ${oIdx === q.correct ? "checked" : ""}
                     onchange="setCorrectOption(${qIdx}, ${oIdx})" />
+                  <strong style="min-width:22px; color:var(--primary);">${optionLetters[oIdx] || oIdx + 1}:</strong>
                   <input type="text" value="${escapeAdminHtml(opt || "")}"
                     oninput="updateOptionText(${qIdx}, ${oIdx}, this.value)"
                     style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
@@ -802,7 +809,8 @@
                   oninput="updateQuestionText(${qIdx}, this.value)">${escapeAdminHtml(q.q || "")}</textarea>
                 <label style="font-size:12px; color:gray;">الاختيارات (حدد دائرة الإجابة الصحيحة):</label>
                 ${optionsHtml}
-                <label style="font-size:12px; color:gray;">التوضيح (اختياري):</label>
+                <div style="font-size:12px; color:#166534; margin:8px 0;">✅ الإجابة الحالية: ${optionLetters[q.correct] || (q.correct + 1)}</div>
+                <label style="font-size:12px; color:gray;">الشرح (اختياري):</label>
                 <input type="text" value="${escapeAdminHtml(q.exp || "")}"
                   oninput="updateExpText(${qIdx}, this.value)"
                   style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); margin-bottom:8px;" />
@@ -861,16 +869,15 @@
           document.getElementById("aiExamReview").style.display = "none";
           document.getElementById("aiExamStatus").textContent = "";
           document.getElementById("aiLessonTitle").value = "";
+          document.getElementById("aiExamRawText").value = "";
           document.getElementById("aiExamFiles").value = "";
         } catch (err) {
           alert("تعذر الاتصال بالسيرفر");
         }
       }
 
-      // ========================================
-      // إدارة الطلاب (بحث / تعطيل / حذف / إعادة تعيين كلمة السر)
-      // ========================================
-      function renderStudentsList() {
+      // =================================      // إدارة الطلاب (بحث / تعطيل / حذف / إعادة تعيين كلمة السر)
+      // =================================      function renderStudentsList() {
         const list = document.getElementById("studentsList");
         if (!list) return;
         const branch = document.getElementById("studentsBranchFilter")?.value || "all";

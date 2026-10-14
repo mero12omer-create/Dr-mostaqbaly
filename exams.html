@@ -28,10 +28,13 @@
       .quiz-card-modern {
         background: var(--card-bg);
         border-radius: 20px;
-        padding: 30px 20px;
+        padding: 24px;
         border: 1px solid var(--border);
         box-shadow: var(--shadow);
         margin-top: 20px;
+        max-width: 760px;
+        margin-left: auto;
+        margin-right: auto;
         perspective: 1200px;
         animation: qCardFlipIn .5s cubic-bezier(.22,1,.36,1);
       }
@@ -91,6 +94,28 @@
         text-align: right;
         cursor: pointer;
         transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .option-letter {
+        min-width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background: rgba(37, 99, 235, 0.12);
+        color: var(--primary);
+        font-weight: 800;
+      }
+      .answer-feedback {
+        margin-top: 16px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        font-weight: 700;
+        background: rgba(37, 99, 235, 0.08);
+        border: 1px solid rgba(37, 99, 235, 0.18);
       }
       .modern-opt-btn:hover {
         border-color: var(--primary);
@@ -502,8 +527,9 @@
         const quizBox = document.getElementById("examChallengeBox");
 
         let optionsHtml = "";
+        const optionLetters = ["أ", "ب", "ج", "د"];
         (Array.isArray(qData.options) ? qData.options : []).forEach((opt, idx) => {
-          optionsHtml += `<button class="modern-opt-btn" type="button" data-option-index="${idx}">${escapeExamHtml(opt)}</button>`;
+          optionsHtml += `<button class="modern-opt-btn" type="button" data-option-index="${idx}"><span class="option-letter">${optionLetters[idx] || idx + 1}</span><span>${escapeExamHtml(opt)}</span></button>`;
         });
 
         const pct = (currentQIdx / activeQuestions.length) * 100;
@@ -519,7 +545,8 @@
         </div>
         <h3 class="q-text">${currentQIdx + 1}. ${escapeExamHtml(qData.q)}</h3>
         <div class="options-container">${optionsHtml}</div>
-        <div class="explanation-box" id="explanationBox" style="display:none; margin-top:20px; padding:15px; background:var(--bg); border-radius:12px; border:1px solid var(--border); font-size:14px;">
+        <div class="answer-feedback" id="answerFeedback" style="display:none;"></div>
+        <div class="explanation-box" id="explanationBox" style="display:none; margin-top:12px; padding:15px; background:var(--bg); border-radius:12px; border:1px solid var(--border); font-size:14px;">
           <span id="explanationText"></span>
         </div>
         <div style="margin-top: 25px; display: flex; justify-content: space-between; align-items: center;">
@@ -555,6 +582,7 @@
 
         const expBox = document.getElementById("explanationBox");
         const expText = document.getElementById("explanationText");
+        const feedback = document.getElementById("answerFeedback");
         selectedAnswers[currentQIdx] = selectedIdx;
 
         if (selectedIdx === correctIdx) {
@@ -564,6 +592,8 @@
           document.getElementById("userScore").innerText = earnedScore;
 
           const quote = getRandomQuote(correctQuotes);
+          feedback.innerHTML = "✅ إجابة صحيحة — أحسنت!";
+          feedback.style.color = "#166534";
           expText.innerHTML = `<span style="color: #22c55e; font-weight: bold; display: block; margin-bottom: 5px;">${escapeExamHtml(quote)}</span>💡 <strong>التوضيح:</strong> ${escapeExamHtml(exp || "إجابة صحيحة!")}`;
         } else {
           selectedBtn.classList.add("wrong");
@@ -571,10 +601,13 @@
           if (allBtns[correctIdx]) allBtns[correctIdx].classList.add("correct");
 
           const quote = getRandomQuote(wrongQuotes);
+          feedback.innerHTML = "❌ إجابة غير صحيحة — الإجابة الصحيحة مميزة باللون الأخضر.";
+          feedback.style.color = "#991b1b";
           expText.innerHTML = `<span style="color: #ef4444; font-weight: bold; display: block; margin-bottom: 5px;">${escapeExamHtml(quote)}</span>💡 <strong>التوضيح:</strong> ${escapeExamHtml(exp || "راجع الإجابة الصحيحة أعلاه.")}`;
         }
 
-        expBox.style.display = "block";
+        feedback.style.display = "block";
+        expBox.style.display = exp ? "block" : "none";
         document.getElementById("nextQBtn").style.display = "inline-block";
       }
 

@@ -1626,73 +1626,73 @@ app.post("/api/admin/notes/approve", requireAdmin, (req, res) => {
 
 // محاولة تحليل نص خام لأسئلة اختيار من متعدد بصيغ شائعة (احتياطي بدون AI API)
 function parseQuestionsHeuristically(rawText) {
-  const text = String(rawText || "").replace(/\r/g, "");
-  // نقسم النص عند بداية كل سؤال جديد (رقم متبوع بنقطة/قوس/شرطة)
-  const blocks = text
-    .split(/(?=(?:^|\n)\s*(?:\d{1,2}|س\s*\d{1,2})\s*[\.\)\-:])/g)
-    .map((b) => b.trim())
-    .filter(Boolean);
+  const text = String(rawText || "").replace(/\r/g, "").trim();
+  if (!text) return [];
 
-  const arabicLetters = ["أ", "ب", "ج", "د", "ه"];
-  const questions = [];
-
-  blocks.forEach((block) => {
-    const lines = block
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean);
-    if (!lines.length) return;
-
-    // نص السؤال هو أول سطر بعد إزالة رقم السؤال
-    const qLine = lines[0].replace(
-      /^(?:\d{1,2}|س\s*\d{1,2})\s*[\.\)\-:]\s*/,
-      "",
-    );
-    if (!qLine || qLine.length < 3) return;
-
-    const options = [];
-    let correctIdx = 0;
-    let exp = "";
-
-    lines.slice(1).forEach((line) => {
-      const optMatch = line.match(/^(?:[أابجدهABCD1234])\s*[\.\)\-]\s*(.+)$/);
-      if (optMatch && options.length < 6) {
-        options.push(optMatch[1].trim().replace(/\s*[✔✓\*]\s*$/, ""));
-        if (/[✔✓\*]/.test(line)) correctIdx = options.length - 1;
-        return;
-      }
-      const ansMatch = line.match(
-        /^(?:الإجابة|الاجابة|إجابة|الحل)\s*(?:الصحيحة)?\s*[:\-]?\s*(.+)$/,
-      );
-      if (ansMatch) {
-        const ansRaw = ansMatch[1].trim();
-        const letterIdx = arabicLetters.indexOf(ansRaw[0]);
-        if (letterIdx !== -1) {
-          correctIdx = letterIdx;
-        } else {
-          const numMatch = ansRaw.match(/\d+/);
-          if (numMatch) correctIdx = Math.max(0, parseInt(numMatch[0], 10) - 1);
-        }
-        return;
-      }
-      const expMatch = line.match(/^(?:توضيح|شرح|تعليل)\s*[:\-]\s*(.+)$/);
-      if (expMatch) {
-        exp = expMatch[1].trim();
-      }
-    });
-
-    if (qLine && options.length >= 2) {
-      questions.push({
-        q: qLine,
-        options,
-        correct: Math.min(correctIdx, options.length - 1),
-        exp,
-        points: 2,
-      });
+  const lines = text.split("\n").map((line) => line.trim());
+  const startsQuestion = (line) => /^(?:السؤال|سؤال)\s*:/i.test(line);
+  const blocks = [];
+  let current = [];
+  for (const line of lines) {
+    if (startsQuestion(line) && current.some(Boolean)) {
+      blocks.push(current);
+      current = [];
     }
-  });
+    if (line) current.push(line);
+  }
+  if (current.length) blocks.push(current);
 
-  return questions;
+  const labelToIndex = { "أ": 0, "ا": 0, "A": 0, "1": 0, "ب": 1, "B": 1, "2": 1, "ج": 2, "C": 2, "3": 2, "د": 3, "D": 3, "4": 3 };
+  const result = [];
+
+  for (const block of blocks) {
+    const questionLineIndex = block.findIndex((line) => /^(?:السؤال|سؤال)\s*:/i.test(line));
+    if (questionLineIndex < 0) continue;
+    const questionParts = [];
+    const firstQuestion = block[questionLineIndex].replace(/^(?:السؤال|سؤال)\s*:\s*/i, "").trim();
+    if (firstQuestion) questionParts.push(firstQuestion);
+
+    const options = ["", "", "", ""];
+    let correct = 0;
+    let explanation = "";
+    let mode = "question";
+    let activeOption = -1;
+
+    for (const line of block.slice(questionLineIndex + 1)) {
+      const option = line.match(/^([أابجدABCD1-4])\s*:\s*(.*)$/i);
+      if (option) {
+        const index = labelToIndex[option[1].toUpperCase()] ?? 0;
+        activeOption = index;
+        options[index] = option[2].trim();
+        mode = "options";
+        continue;
+      }
+      const answer = line.match(/^(?:الإجابة|الاجابة|إجابة|الحل)\s*(?:الصحيحة)?\s*:\s*(.*)$/i);
+      if (answer) {
+        const value = answer[1].trim();
+        if (value) correct = labelToIndex[value[0].toUpperCase()] ?? (Number(value) ? Number(value) - 1 : 0);
+        mode = "answer";
+        activeOption = -1;
+        continue;
+      }
+      const explanationHeader = line.match(/^(?:الشرح|شرح|توضيح|تعليل)\s*:\s*(.*)$/i);
+      if (explanationHeader) {
+        explanation = explanationHeader[1].trim();
+        mode = "explanation";
+        activeOption = -1;
+        continue;
+      }
+      if (mode === "question") questionParts.push(line);
+      else if (mode === "options" && activeOption >= 0 && !options[activeOption]) options[activeOption] = line;
+      else if (mode === "explanation") explanation = explanation ? `${explanation} ${line}` : line;
+    }
+
+    const question = questionParts.join(" ").trim();
+    if (question.length >= 3 && options.every(Boolean)) {
+      result.push({ q: question, options, correct: Math.max(0, Math.min(correct, 3)), exp: explanation, points: 2 });
+    }
+  }
+  return result;
 }
 
 // استخدام الذكاء الاصطناعي (لو مضبوط AI_API_KEY/AI_API_URL) لاستخراج الأسئلة بدقة أعلى
@@ -1709,7 +1709,7 @@ async function parseQuestionsWithAI(rawText) {
         {
           role: "system",
           content:
-            'أنت مساعد يستخرج أسئلة اختيار من متعدد من نص خام. أعد فقط JSON صحيح بدون أي نص إضافي أو Markdown، على شكل مصفوفة: [{"q": "نص السؤال", "options": ["اختيار1","اختيار2","اختيار3","اختيار4"], "correct": 0, "exp": "توضيح مختصر"}]. رقم "correct" هو فهرس الاختيار الصحيح (يبدأ من صفر). لا تخترع أسئلة غير موجودة في النص.',
+            'أنت مساعد يستخرج أسئلة اختيار من متعدد من نص خام. أعد فقط JSON صحيح بدون أي نص إضافي أو Markdown، على شكل مصفوفة: [{"q":"نص السؤال","options":["أ","ب","ج","د"],"correct":0,"exp":"الشرح أو نص فارغ"}]. النص قد يكون بهذا القالب: السؤال: ثم نص السؤال، ثم أ: وباقي الاختيارات ب: ج: د:، ثم الإجابة الصحيحة: أ، ثم الشرح:. اجعل correct فهرساً يبدأ من صفر، واحفظ الشرح كما هو إن وجد. لا تخترع أسئلة أو إجابات غير موجودة.',
         },
         { role: "user", content: rawText.slice(0, 12000) },
       ],
