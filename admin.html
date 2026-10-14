@@ -876,8 +876,10 @@
         }
       }
 
-      // =================================      // إدارة الطلاب (بحث / تعطيل / حذف / إعادة تعيين كلمة السر)
-      // =================================      function renderStudentsList() {
+      // =================================
+      // إدارة الطلاب (بحث / تعطيل / حذف / إعادة تعيين كلمة السر)
+      // =================================
+      function renderStudentsList() {
         const list = document.getElementById("studentsList");
         if (!list) return;
         const branch = document.getElementById("studentsBranchFilter")?.value || "all";
