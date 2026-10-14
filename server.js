@@ -23,6 +23,9 @@ const {
   getSubjectLabel,
 } = require("./subjects.js");
 const app = express();
+// Vercel بيمرر الطلبات عبر proxy؛ من غير ده كل الزوار بيظهروا بنفس الـ IP
+// فالـ rate limit بيتحسب على الموقع كله ويقفل الأدمن.
+app.set("trust proxy", 1);
 const execFileAsync = promisify(execFile);
 
 // مجلد الرفع المؤقت (صور/ملفات المذكرات والامتحانات)
@@ -104,6 +107,7 @@ app.use((req, res, next) => {
   });
 });
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
+app.get(["/admin", "/admin/"], (req, res) => res.redirect(302, "/admin.html"));
 app.use(express.json({ limit: "25mb" }));
 // لا نعرض ملفات الرفع الخام أو مسودات الأدمن؛ الملف يصبح متاحاً بعد اعتماد المذكرة فقط.
 app.get("/uploads/:filename", requireStudentAuth, (req, res) => {
@@ -791,7 +795,7 @@ app.post("/api/exams/:examId/submit", requireStudentAuth, pointsLimiter, (req, r
         [examId, req.studentPhone, score, totalPoints, correctCount, JSON.stringify(answers)],
         function (attemptErr) {
           if (attemptErr) {
-            if (String(attemptErr.message || "").includes("UNIQUE")) {
+            if (attemptErr.code === "23505" || /unique|duplicate key/i.test(String(attemptErr.message || ""))) {
               return res.status(409).json({ success: false, code: "EXAM_ALREADY_SUBMITTED", message: "لقد أديت هذا الامتحان من قبل، ولن تتم إضافة النقاط مرة أخرى." });
             }
             return res.status(500).json({ success: false, message: "تعذر حفظ محاولة الامتحان" });
