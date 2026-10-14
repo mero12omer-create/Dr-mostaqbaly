@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>دكتور مستقبلي - المعلم الذكي</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="fixed-header">
+      <div class="navbar">
+        <h2 class="logo">دكتور مستقبلي 🩺</h2>
+        <div class="nav-actions">
+          <button class="icon-btn" onclick="toggleSearch()" title="بحث">
+            🔍
+          </button>
+          <button class="icon-btn" id="themeToggle" title="تغيير المظهر">
+            🌙
+          </button>
+          <button class="icon-btn" id="menuBtn" title="القائمة">☰</button>
+          <a href="profile.html" class="icon-btn" title="الملف الشخصي">👤</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="container chat-container">
+      <div class="chat-header">
+        <div class="bot-status">
+          <div class="bot-avatar">🤖</div>
+          <div>
+            <h3>دكتور AI (المعلم الشخصي)</h3>
+            <p class="status-online" id="chatStatus" role="status" aria-live="polite">● جاري الاتصال بالمعلم الذكي...</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-messages" id="chatMessages">
+        <div class="message bot-msg">
+          <p>
+            أهلاً بك! أنا المعلم الذكي الخاص بك. اسألني عن أي درس أو سؤال في
+            موادك الدراسية، وسأشرح لك الفكرة ببساطة ووضوح باللغة العربية. 🩺
+          </p>
+          <span class="msg-time">الآن</span>
+        </div>
+      </div>
+
+      <div class="chat-quick-actions" id="chatQuickActions">
+        <button class="quick-action-btn" onclick="quickAction('اشرح لي درس')">
+          📖 اشرح الدرس
+        </button>
+        <button class="quick-action-btn" onclick="quickAction('لخص لي درس')">
+          ✂️ لخص الدرس
+        </button>
+        <button
+          class="quick-action-btn"
+          onclick="quickAction('اعمل لي امتحان')"
+        >
+          📝 اعمل امتحان
+        </button>
+        <button class="quick-action-btn" onclick="quickAction('اسأل سؤال')">
+          ❓ اسأل سؤال
+        </button>
+      </div>
+
+      <form class="chat-input-area" id="chatForm">
+        <input
+          type="text"
+          id="userInput"
+          placeholder="سؤالك هنا يا دكتور..."
+          required
+          autocomplete="off"
+        />
+        <button type="submit" class="send-btn">إرسال 🚀</button>
+      </form>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>

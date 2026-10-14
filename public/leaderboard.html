@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>لوحة الصدارة - دكتور مستقبلي 🩺</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      .leaderboard-container {
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 20px;
+      }
+      .top-three {
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        gap: 15px;
+        margin-bottom: 30px;
+        padding-top: 20px;
+      }
+      .podium-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 20px 15px;
+        text-align: center;
+        flex: 1;
+        box-shadow: var(--shadow);
+        position: relative;
+      }
+      .podium-card.first {
+        order: 2;
+        border-color: #eab308;
+        transform: scale(1.05);
+        background: linear-gradient(
+          180deg,
+          rgba(234, 179, 8, 0.08) 0%,
+          var(--card-bg) 100%
+        );
+      }
+      .podium-card.second {
+        order: 1;
+      }
+      .podium-card.third {
+        order: 3;
+      }
+      .crown {
+        font-size: 28px;
+        margin-bottom: 5px;
+      }
+      .podium-name {
+        font-size: 15px;
+        font-weight: bold;
+        margin: 8px 0 4px;
+      }
+      .podium-pts {
+        font-size: 13px;
+        color: var(--primary);
+        font-weight: bold;
+      }
+
+      .rank-list {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 15px;
+        box-shadow: var(--shadow);
+      }
+      .rank-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 15px;
+        border-bottom: 1px solid var(--border);
+        border-radius: 12px;
+      }
+      .rank-item:last-child {
+        border-bottom: none;
+      }
+      .rank-item.is-me {
+        background: rgba(37, 99, 235, 0.08);
+        border: 1px solid var(--primary);
+      }
+      .rank-num {
+        width: 30px;
+        font-weight: bold;
+        color: gray;
+      }
+      .user-info-box {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="fixed-header">
+      <div class="navbar">
+        <h2 class="logo">دكتور مستقبلي 🩺</h2>
+        <div class="nav-actions">
+          <a href="index.html" class="icon-btn" title="الرئيسية">🏠</a>
+          <button class="icon-btn" id="themeToggle" title="تغيير المظهر">
+            🌙
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="container leaderboard-container" style="margin-top: 80px">
+      <div style="text-align: center; margin-bottom: 25px">
+        <h2>🏆 لوحة أبطال المستقبل</h2>
+        <p style="color: gray; font-size: 14px">
+          ترتيب الدكاترة بناءً على حل الأسئلة وتجميع النقاط ⭐
+        </p>
+      </div>
+
+      <div class="top-three" id="topThreeBox"></div>
+
+      <div class="rank-list" id="rankListBox"></div>
+    </main>
+
+    <script src="script.js"></script>
+    <script>
+      async function loadLeaderboard() {
+        let users = [];
+        const myName = localStorage.getItem("userName") || "";
+
+        // جلب الطلاب من السيرفر
+        try {
+          const response = await fetch("/api/leaderboard");
+          const data = await response.json();
+          if (data.success) {
+            users = (data.leaderboard || []).map((s) => ({
+              name: s.name || "طالب مجهول",
+              points: s.points || 0,
+              branch: s.branch || "عام",
+            }));
+          }
+        } catch (e) {
+          console.log("تعذر جلب لوحة الصدارة من السيرفر:", e);
+        }
+
+        const topThreeBox = document.getElementById("topThreeBox");
+        const rankListBox = document.getElementById("rankListBox");
+
+        if (users.length === 0) {
+          rankListBox.innerHTML =
+            '<p style="text-align:center; color:gray; padding:20px;">لا يوجد طلاب مسجلين حالياً 📝</p>';
+          return;
+        }
+
+        // عرض الثلاثة الأوائل
+        const icons = ["🥇", "🥈", "🥉"];
+        const classes = ["first", "second", "third"];
+        topThreeBox.innerHTML = "";
+
+        for (let i = 0; i < Math.min(3, users.length); i++) {
+          topThreeBox.innerHTML += `
+        <div class="podium-card ${classes[i]}">
+          <div class="crown">${icons[i]}</div>
+          <div class="podium-name">${users[i].name}</div>
+          <div class="podium-pts">${users[i].points} نقطة ⭐</div>
+        </div>
+      `;
+        }
+
+        // عرض باقي الترتيب (من الرابع فما فوق)
+        rankListBox.innerHTML = "";
+        users.forEach((u, idx) => {
+          const isMe = Boolean(myName && u.name === myName);
+          rankListBox.innerHTML += `
+        <div class="rank-item ${isMe ? "is-me" : ""}">
+          <div class="rank-num">#${idx + 1}</div>
+          <div class="user-info-box">
+            <span>👨‍⚕️</span>
+            <strong>${u.name} ${isMe ? " (أنت) 👈" : ""}</strong>
+          </div>
+          <div style="font-weight: bold; color: var(--primary);">${u.points} ⭐</div>
+        </div>
+      `;
+        });
+      }
+
+      window.onload = loadLeaderboard;
+    </script>
+  </body>
+</html>
