@@ -522,10 +522,15 @@ async function initProfilePage() {
   // جلب بيانات النقاط واللقب من السيرفر عبر جلسة الطالب فقط
   try {
     const token = localStorage.getItem("studentAuthToken");
-    if (!token) return;
+    if (!token) { window.location.href = "login.html"; return; }
     const res = await fetch("/api/profile", {
       headers: { "x-student-token": token },
     });
+    if (res.status === 401) {
+      localStorage.removeItem("studentAuthToken");
+      window.location.href = "login.html";
+      return;
+    }
     const data = await res.json();
     if (data.success && data.user) {
       const u = data.user;
