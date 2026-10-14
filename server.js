@@ -2119,6 +2119,23 @@ app.get("/api/admin/notes", requireAdmin, (req, res) => {
   });
 });
 
+// حذف مذكرة (للأدمن فقط) — لو أضفت مذكرة بالغلط
+app.post("/api/admin/notes/delete", requireAdmin, (req, res) => {
+  const id = Number(req.body && req.body.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ success: false, message: "معرف المذكرة غير صالح" });
+  }
+  db.run(`DELETE FROM notes WHERE id = ?`, [id], function (err) {
+    if (err) {
+      return res.status(500).json({ success: false, message: "تعذر حذف المذكرة" });
+    }
+    if (!this.changes) {
+      return res.status(404).json({ success: false, message: "المذكرة غير موجودة" });
+    }
+    res.status(200).json({ success: true, message: "تم حذف المذكرة" });
+  });
+});
+
 app.get("/api/notes", requireStudentAuth, (req, res) => {
   const userBranch = req.userBranch || getUserBranchFromRequest(req);
   db.all(
