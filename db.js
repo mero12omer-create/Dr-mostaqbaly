@@ -44,6 +44,27 @@ function ensureReturningId(sql) {
   return sql;
 }
 
+// Postgres بيحوّل أسماء الأعمدة غير المقتبسة لحروف صغيرة (ownerName → ownername)،
+// والكود بيقرأها camelCase. الدالة دي بتضيف الاسم الصحيح لكل صف راجع من الداتابيس.
+const CAMEL_COLUMNS = {
+  aidraft: "aiDraft",
+  fileurl: "fileUrl",
+  isdraft: "isDraft",
+  lessontitle: "lessonTitle",
+  ownername: "ownerName",
+  subjectgroup: "subjectGroup",
+  subjectkey: "subjectKey",
+  subjectname: "subjectName",
+};
+function fixRow(row) {
+  if (!row || typeof row !== "object") return row;
+  for (const key of Object.keys(row)) {
+    const camel = CAMEL_COLUMNS[key];
+    if (camel && !(camel in row)) row[camel] = row[key];
+  }
+  return row;
+}
+
 const db = {
   // يقابل db.run(sql, params, callback) — للـ INSERT/UPDATE/DELETE/CREATE TABLE
   run(sql, params, callback) {
@@ -93,7 +114,7 @@ const db = {
     pool
       .query(convertPlaceholders(sql), params)
       .then((result) => {
-        if (typeof callback === "function") callback(null, result.rows[0]);
+        if (typeof callback === "function") callback(null, fixRow(result.rows[0]));
       })
       .catch((err) => {
         if (typeof callback === "function") callback(err);
@@ -111,7 +132,7 @@ const db = {
     pool
       .query(convertPlaceholders(sql), params)
       .then((result) => {
-        if (typeof callback === "function") callback(null, result.rows);
+        if (typeof callback === "function") callback(null, result.rows.map(fixRow));
       })
       .catch((err) => {
         if (typeof callback === "function") callback(err);
