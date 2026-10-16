@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="ar" dir="rtl">
   <head>
     <script>
@@ -24,228 +24,65 @@
     <title>ابدأ مذاكرة - دكتور مستقبلي 🩺</title>
     <link rel="stylesheet" href="style.css" />
     <style>
-      /* ===== تايمر المذاكرة ===== */
-      .study-wrap {
-        max-width: 520px;
-        margin: 0 auto;
-      }
-      .study-card {
-        background:
-          linear-gradient(160deg, rgba(15, 23, 42, 0.88), rgba(30, 41, 59, 0.94)),
-          url("study-bg.jpeg") center / cover no-repeat;
-        border-radius: 24px;
-        padding: 28px 22px;
-        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.35);
-        color: #f8fafc;
-        text-align: center;
-      }
-      .study-card h3 {
-        font-size: 22px;
-        margin-bottom: 6px;
-        color: #fff;
-      }
-      .study-card .study-sub {
-        font-size: 13px;
-        color: #94a3b8;
-        margin-bottom: 22px;
-      }
-      .study-presets {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 10px;
-        margin-bottom: 18px;
-      }
-      .study-preset {
-        background: rgba(148, 163, 184, 0.12);
-        border: 1.5px solid rgba(148, 163, 184, 0.25);
-        color: #e2e8f0;
-        border-radius: 14px;
-        padding: 14px 6px;
-        cursor: pointer;
-        font-weight: 700;
-        font-size: 15px;
-        font-family: inherit;
-        transition: all 0.18s ease;
-      }
-      .study-preset:hover {
-        border-color: #60a5fa;
-      }
-      .study-preset.active {
-        background: linear-gradient(160deg, #2563eb, #3b82f6);
-        border-color: #60a5fa;
-        color: #fff;
-        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.45);
-      }
-      .study-adjuster {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 14px;
-        margin: 18px 0 8px;
-      }
-      .study-adjuster button {
-        width: 46px;
-        height: 46px;
-        border-radius: 50%;
-        border: 1.5px solid rgba(148, 163, 184, 0.35);
-        background: rgba(148, 163, 184, 0.12);
-        color: #fff;
-        font-size: 24px;
-        cursor: pointer;
-        font-family: inherit;
-        line-height: 1;
-      }
-      .study-adjuster button:hover {
-        background: rgba(96, 165, 250, 0.25);
-        border-color: #60a5fa;
-      }
-      .study-goal-value {
-        min-width: 150px;
-      }
-      .study-goal-value .num {
-        font-size: 34px;
-        font-weight: 800;
-        color: #fff;
-      }
-      .study-goal-value .unit {
-        font-size: 14px;
-        color: #94a3b8;
-      }
-      .study-unit-toggle {
-        display: inline-flex;
-        background: rgba(148, 163, 184, 0.14);
-        border-radius: 12px;
-        padding: 4px;
-        margin: 8px 0 20px;
-      }
-      .study-unit-toggle button {
-        border: none;
-        background: transparent;
-        color: #cbd5e1;
-        padding: 8px 18px;
-        border-radius: 9px;
-        cursor: pointer;
-        font-weight: 700;
-        font-family: inherit;
-      }
-      .study-unit-toggle button.active {
-        background: #2563eb;
-        color: #fff;
-      }
-      .study-save-btn {
-        width: 100%;
-        padding: 15px;
-        border: none;
-        border-radius: 14px;
-        background: linear-gradient(160deg, #2563eb, #1d4ed8);
-        color: #fff;
-        font-size: 16px;
-        font-weight: 800;
-        cursor: pointer;
-        font-family: inherit;
-        box-shadow: 0 10px 24px rgba(37, 99, 235, 0.4);
-      }
-      .study-save-btn:hover {
-        filter: brightness(1.08);
-      }
-      .timer-display {
-        font-size: 60px;
-        font-weight: 800;
-        font-variant-numeric: tabular-nums;
-        letter-spacing: 2px;
-        color: #fff;
-        margin: 6px 0 4px;
-        direction: ltr;
-      }
-      .timer-ring {
-        position: relative;
-        width: 230px;
-        height: 230px;
-        margin: 6px auto 18px;
-      }
-      .timer-ring svg {
-        transform: rotate(-90deg);
-      }
-      .timer-ring .timer-center {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-      }
-      .timer-goal-label {
-        font-size: 13px;
-        color: #94a3b8;
-        margin-top: 2px;
-      }
-      .timer-status {
-        font-size: 14px;
-        color: #93c5fd;
-        margin-bottom: 18px;
-        min-height: 20px;
-      }
-      .timer-actions {
-        display: flex;
-        gap: 10px;
-        justify-content: center;
-        flex-wrap: wrap;
-      }
-      .timer-actions button {
-        padding: 13px 24px;
-        border-radius: 14px;
-        border: none;
-        font-size: 15px;
-        font-weight: 700;
-        cursor: pointer;
-        font-family: inherit;
-      }
-      .timer-start {
-        background: linear-gradient(160deg, #22c55e, #16a34a);
-        color: #fff;
-        box-shadow: 0 8px 20px rgba(34, 197, 94, 0.4);
-      }
-      .timer-finish {
-        background: linear-gradient(160deg, #ef4444, #dc2626);
-        color: #fff;
-        box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
-      }
-      .timer-change {
-        background: rgba(148, 163, 184, 0.16);
-        color: #e2e8f0;
-        border: 1.5px solid rgba(148, 163, 184, 0.3) !important;
-      }
-      .study-stats {
-        margin-top: 18px;
-        font-size: 13px;
-        color: #94a3b8;
-        display: flex;
-        justify-content: center;
-        gap: 18px;
-        flex-wrap: wrap;
-      }
-      .study-stats b {
-        color: #93c5fd;
-      }
-      .study-success {
-        margin-top: 16px;
-        padding: 14px;
-        border-radius: 14px;
-        background: rgba(34, 197, 94, 0.15);
-        border: 1px solid rgba(34, 197, 94, 0.4);
-        color: #bbf7d0;
-        font-size: 14px;
-        display: none;
-      }
-      @media (max-width: 560px) {
-        .study-presets { grid-template-columns: repeat(2, 1fr); }
-        .timer-display { font-size: 46px; }
-        .timer-ring { width: 190px; height: 190px; }
-      }
+      :root { --gold:#ffb52e; --ink:#171127; --glass:rgba(22,16,42,.74); }
+      body.study-page { background:#0e0b18; }
+      body.study-page::before { background:linear-gradient(180deg,rgba(9,7,18,.42),rgba(9,7,18,.76)),url("study-bg.jpeg") center/cover fixed no-repeat; }
+      .study-shell { max-width:620px; margin:0 auto; padding:18px 14px 42px; }
+      .study-hero { min-height:calc(100vh - 94px); border-radius:30px; overflow:hidden; position:relative; color:#fff; background:linear-gradient(180deg,rgba(11,8,25,.2),rgba(11,8,25,.72)),url("study-bg.jpeg") center/cover; box-shadow:0 28px 70px rgba(8,5,20,.48); padding:24px 20px 20px; }
+      .study-hero:after { content:""; position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg,rgba(25,15,50,.1),rgba(17,8,34,.5)); }
+      .study-content { position:relative; z-index:1; }
+      .study-topline { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; }
+      .study-kicker { display:inline-flex; padding:7px 18px; border:1px solid rgba(255,255,255,.5); border-radius:999px; background:rgba(255,255,255,.14); font-size:13px; font-weight:800; }
+      .study-title { font-size:clamp(34px,8vw,58px); font-weight:900; color:#fff; margin:0 0 10px; text-shadow:0 4px 22px rgba(0,0,0,.45); }
+      .subject-strip { display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; margin:0 -4px 18px; padding:4px; }
+      .subject-strip::-webkit-scrollbar { display:none; }
+      .subject-pill { flex:0 0 auto; border:1px solid rgba(255,255,255,.5); color:#fff; background:rgba(36,25,59,.46); border-radius:999px; padding:9px 18px; font-size:14px; font-weight:800; cursor:pointer; font-family:inherit; }
+      .subject-pill.active { background:var(--gold); border-color:var(--gold); color:#24152b; box-shadow:0 8px 20px rgba(255,181,46,.3); }
+      .focus-row { display:flex; justify-content:center; gap:8px; margin-bottom:22px; }
+      .focus-chip { border:0; color:#fff; background:rgba(33,22,58,.62); border-radius:13px; padding:9px 16px; font-weight:800; cursor:pointer; font-family:inherit; }
+      .focus-chip.active { background:#fff; color:#24152b; }
+      .timer-display { font-size:clamp(70px,18vw,132px); line-height:1; font-weight:900; font-variant-numeric:tabular-nums; letter-spacing:2px; color:#fff; direction:ltr; text-align:center; text-shadow:0 5px 26px rgba(0,0,0,.35); margin:10px 0 8px; }
+      .timer-ring { position:relative; width:min(310px,76vw); height:min(310px,76vw); margin:0 auto 10px; }
+      .timer-ring svg { width:100%; height:100%; transform:rotate(-90deg); filter:drop-shadow(0 6px 10px rgba(0,0,0,.2)); }
+      .timer-ring .timer-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+      .timer-ring .timer-display { position:absolute; top:50%; transform:translateY(-57%); margin:0; font-size:clamp(50px,13vw,88px); }
+      .timer-goal-label { position:absolute; top:64%; font-size:13px; color:#fff; opacity:.86; }
+      .timer-status { text-align:center; min-height:26px; font-size:16px; font-weight:700; color:#fff; margin-bottom:15px; }
+      .timer-actions { display:grid; grid-template-columns:1fr .72fr; gap:10px; margin:0 auto 18px; max-width:480px; }
+      .timer-actions button { min-height:58px; border-radius:18px; border:0; font-size:20px; font-weight:900; cursor:pointer; font-family:inherit; }
+      .timer-start { grid-column:1; background:linear-gradient(135deg,#ffc34b,#ff9f25); color:#24152b; box-shadow:0 12px 25px rgba(255,170,41,.34); }
+      .timer-finish { grid-column:2; background:rgba(39,27,61,.7); color:#fff; border:1px solid rgba(255,255,255,.4)!important; font-size:16px!important; }
+      .timer-change { grid-column:1/-1; min-height:42px!important; background:transparent; color:#ffd36b; font-size:14px!important; border:1px solid rgba(255,211,107,.48)!important; }
+      .study-success { margin:10px 0; padding:12px; border-radius:14px; background:rgba(34,197,94,.2); border:1px solid rgba(187,247,208,.5); color:#dcfce7; text-align:center; display:none; }
+      .study-progress { background:rgba(24,16,45,.75); border:1px solid rgba(255,255,255,.35); border-radius:23px; padding:16px 18px 12px; }
+      .progress-head,.progress-line { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+      .progress-head { font-weight:900; font-size:15px; }
+      .progress-head span:last-child { color:#ffd36b; direction:ltr; }
+      .progress-track { height:12px; background:rgba(255,255,255,.22); border-radius:99px; overflow:hidden; margin:10px 0 8px; }
+      .progress-fill { height:100%; width:0; border-radius:inherit; background:linear-gradient(90deg,#ff9f25,#ffe07d); transition:width .3s; }
+      .progress-line { color:#fff; font-size:13px; opacity:.9; }
+      .study-stats { display:grid; grid-template-columns:repeat(3,1fr); margin-top:15px; padding-top:13px; border-top:1px solid rgba(255,255,255,.25); text-align:center; }
+      .study-stats span { display:block; color:#fff; font-size:12px; border-left:1px solid rgba(255,255,255,.25); }
+      .study-stats span:last-child { border-left:0; }
+      .study-stats b { display:block; color:#fff; font-size:23px; line-height:1.2; }
+      #studyGoalView { display:block; }
+      #studyTimerView { display:none; }
+      .goal-panel { background:rgba(24,16,45,.76); border:1px solid rgba(255,255,255,.3); border-radius:22px; padding:18px; }
+      .goal-panel h3 { color:#fff; font-size:23px; }
+      .goal-panel .study-sub { color:#eee; }
+      .study-presets { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:14px 0; }
+      .study-preset { background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.45); border-radius:12px; padding:12px 4px; cursor:pointer; font-weight:800; font-family:inherit; }
+      .study-preset.active { background:var(--gold); color:#24152b; border-color:var(--gold); }
+      .study-adjuster { display:flex; align-items:center; justify-content:center; gap:14px; margin:16px 0 6px; }
+      .study-adjuster button { width:42px; height:42px; border-radius:50%; border:1px solid rgba(255,255,255,.5); background:rgba(255,255,255,.12); color:#fff; font-size:23px; cursor:pointer; }
+      .study-goal-value { min-width:110px; text-align:center; }.study-goal-value .num{font-size:32px;font-weight:900;color:#fff}.study-goal-value .unit{color:#eee;font-size:13px}
+      .study-unit-toggle { display:inline-flex; background:rgba(255,255,255,.14); border-radius:10px; padding:3px; margin:8px 0 15px; }.study-unit-toggle button{border:0;background:transparent;color:#fff;padding:7px 15px;border-radius:8px;cursor:pointer;font-weight:800;font-family:inherit}.study-unit-toggle button.active{background:var(--gold);color:#24152b}
+      .study-save-btn { width:100%; padding:15px; border:0; border-radius:15px; background:linear-gradient(135deg,#ffc34b,#ff9f25); color:#24152b; font-size:17px; font-weight:900; cursor:pointer; font-family:inherit; }
+      @media(max-width:560px){ .study-shell{padding:8px 8px 30px}.study-hero{border-radius:24px;padding:20px 14px 15px}.study-title{font-size:42px}.subject-pill{padding:8px 14px}.timer-actions{grid-template-columns:1fr 1fr}.study-stats b{font-size:20px}.study-presets{grid-template-columns:repeat(2,1fr)} }
     </style>
   <script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
 </head>
-  <body>
+  <body class="study-page">
     <div id="statusBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; background:#dc2626; color:#fff; padding:14px; font-size:15px; text-align:center; direction:rtl; word-break:break-word;"></div>
     <header class="fixed-header">
       <div class="navbar">
@@ -257,71 +94,33 @@
       </div>
     </header>
 
-    <main class="container" style="margin-top: 80px; padding: 20px">
-      <h2 class="section-title">⏱️ ابدأ مذاكرة</h2>
+    <main class="study-shell">
+      <section class="study-hero">
+        <div class="study-content">
+          <div class="study-topline"><span class="study-kicker">جلسة رقم <b id="sessionNumber">3</b> اليوم</span><span aria-hidden="true">📚</span></div>
+          <h1 class="study-title">ابدأ مذاكرة</h1>
+          <div class="subject-strip" id="subjectStrip" aria-label="اختيار المادة"></div>
 
-      <div class="study-wrap">
-        <div class="study-card">
-          <!-- شاشة تحديد الهدف -->
-          <div id="studyGoalView">
+          <div id="studyGoalView" class="goal-panel">
             <h3>🎯 حدد هدفك اليومي</h3>
-            <p class="study-sub">اختار وقت المذاكرة اللي عايز توصله النهارده</p>
-
+            <p class="study-sub">اختار الوقت اللي عايز توصله النهارده</p>
             <div class="study-presets" id="studyPresets"></div>
-
-            <div class="study-adjuster">
-              <button type="button" id="goalMinus" aria-label="أقل">−</button>
-              <div class="study-goal-value">
-                <div class="num" id="goalValue">2</div>
-                <div class="unit" id="goalUnit">ساعة</div>
-              </div>
-              <button type="button" id="goalPlus" aria-label="أكثر">+</button>
-            </div>
-
-            <div class="study-unit-toggle">
-              <button type="button" id="unitHours" class="active">ساعات</button>
-              <button type="button" id="unitMinutes">دقائق</button>
-            </div>
-
-            <button type="button" class="study-save-btn" id="saveGoalBtn">💾 حفظ الهدف</button>
+            <div class="study-adjuster"><button type="button" id="goalMinus" aria-label="أقل">−</button><div class="study-goal-value"><div class="num" id="goalValue">2</div><div class="unit" id="goalUnit">ساعة</div></div><button type="button" id="goalPlus" aria-label="أكثر">+</button></div>
+            <div class="study-unit-toggle"><button type="button" id="unitHours" class="active">ساعات</button><button type="button" id="unitMinutes">دقائق</button></div>
+            <button type="button" class="study-save-btn" id="saveGoalBtn">ابدأ وحدد هدفك</button>
           </div>
 
-          <!-- شاشة التايمر -->
-          <div id="studyTimerView" style="display: none">
-            <h3>⏱️ وقت المذاكرة</h3>
-            <p class="study-sub" id="timerGoalText">هدفك النهارده: ساعتان</p>
-
-            <div class="timer-ring">
-              <svg width="230" height="230" viewBox="0 0 230 230">
-                <circle cx="115" cy="115" r="100" stroke="rgba(148,163,184,0.2)" stroke-width="14" fill="none" />
-                <circle id="timerProgress" cx="115" cy="115" r="100" stroke="#3b82f6" stroke-width="14" fill="none"
-                  stroke-linecap="round" stroke-dasharray="628" stroke-dashoffset="628" />
-              </svg>
-              <div class="timer-center">
-                <div class="timer-display" id="timerDisplay">00:00:00</div>
-                <div class="timer-goal-label" id="timerPercent">0% من الهدف</div>
-              </div>
-            </div>
-
+          <div id="studyTimerView">
+            <div class="focus-row"><button class="focus-chip" data-focus="15">15 دقيقة</button><button class="focus-chip active" data-focus="25">تركيز 25 / راحة 5</button><button class="focus-chip" data-focus="45">45 دقيقة</button></div>
+            <div class="timer-ring"><svg viewBox="0 0 230 230"><circle cx="115" cy="115" r="100" stroke="rgba(255,255,255,.25)" stroke-width="10" fill="none"/><circle id="timerProgress" cx="115" cy="115" r="100" stroke="#ffb52e" stroke-width="10" fill="none" stroke-linecap="round" stroke-dasharray="628" stroke-dashoffset="628"/></svg><div class="timer-center"><div class="timer-display" id="timerDisplay">25:00</div><div class="timer-goal-label" id="timerPercent">0% من الجلسة</div></div></div>
             <div class="timer-status" id="timerStatus">جاهز تبدأ؟ يلا بينا 💪</div>
-
-            <div class="timer-actions">
-              <button type="button" class="timer-start" id="startPauseBtn">▶️ ابدأ</button>
-              <button type="button" class="timer-finish" id="finishBtn">🏁 إنهاء وحفظ</button>
-              <button type="button" class="timer-change" id="changeGoalBtn">✏️ تغيير الهدف</button>
-            </div>
-
+            <div class="timer-actions"><button type="button" class="timer-start" id="startPauseBtn">▶️ ابدأ</button><button type="button" class="timer-finish" id="finishBtn">إنهاء</button><button type="button" class="timer-change" id="changeGoalBtn">✏️ تغيير الهدف اليومي</button></div>
             <div class="study-success" id="studySuccess"></div>
-
-            <div class="study-stats">
-              <span>مذاكرة النهارده: <b id="statToday">0 دقيقة</b></span>
-              <span>الهدف: <b id="statGoal">0 دقيقة</b></span>
-            </div>
+            <div class="study-progress"><div class="progress-head"><span>هدف اليوم</span><span id="dailyGoalLabel">1 س 40 د من 3 س</span></div><div class="progress-track"><div class="progress-fill" id="dailyProgressFill"></div></div><div class="progress-line"><span id="dailyProgressText">فاضل ساعة و20 دقيقة وتحقق هدفك</span><span>🔥</span></div><div class="study-stats"><span><b id="statToday">0</b>اليوم</span><span><b id="statWeek">0</b>هذا الأسبوع</span><span><b id="statStreak">6</b>أيام الالتزام</span></div></div>
           </div>
         </div>
-      </div>
+      </section>
     </main>
-
     <script src="script.js"></script>
     <script>
       /* =====================================================
@@ -338,6 +137,9 @@
       let studyElapsedSeconds = Number(localStorage.getItem(STUDY_KEYS.elapsed)) || 0;
       let studyTimerRunning = localStorage.getItem(STUDY_KEYS.running) === "1";
       let studyTimerStart = Number(localStorage.getItem(STUDY_KEYS.start)) || 0;
+      let focusDurationMinutes = Number(localStorage.getItem("studyFocusMinutes")) || 25;
+      let selectedStudySubject = localStorage.getItem("studySubject") || "history";
+      const studySubjects = [{key:"history",label:"التاريخ 📜"},{key:"arabic",label:"العربي 📖"},{key:"english",label:"الإنجليزي 🔤"},{key:"philosophy",label:"الفلسفة 🧠"},{key:"math",label:"الرياضيات 📐"}];
       let studyTickHandle = null;
 
       function saveStudyState() {
@@ -360,7 +162,8 @@
         const m = Math.floor((s % 3600) / 60);
         const sec = s % 60;
         const pad = (n) => String(n).padStart(2, "0");
-        return `${pad(h)}:${pad(m)}:${pad(sec)}`;
+        if (h > 0) return `${pad(h)}:${pad(m)}:${pad(sec)}`;
+        return `${pad(m)}:${pad(sec)}`;
       }
 
       function minutesLabel(mins) {
@@ -435,30 +238,25 @@
         const statGoal = document.getElementById("statGoal");
         if (statGoal) statGoal.textContent = minutesLabel(studyGoalMinutes);
         updateTimerUI();
+        updateDailyProgress();
       }
 
       function updateTimerUI() {
         const elapsed = studyCurrentElapsed();
+        const focusSeconds = Math.max(60, focusDurationMinutes * 60);
+        const remaining = Math.max(0, focusSeconds - elapsed);
         const display = document.getElementById("timerDisplay");
-        if (display) display.textContent = formatStudyTime(elapsed);
-        const pct = studyGoalMinutes > 0 ? Math.min(100, Math.round((elapsed / 60 / studyGoalMinutes) * 100)) : 0;
+        if (display) display.textContent = formatStudyTime(remaining);
+        const pct = Math.min(100, Math.round((elapsed / focusSeconds) * 100));
         const pctEl = document.getElementById("timerPercent");
-        if (pctEl) pctEl.textContent = `${pct}% من الهدف`;
+        if (pctEl) pctEl.textContent = `${pct}% من جلسة التركيز`;
         const ring = document.getElementById("timerProgress");
-        if (ring) {
-          const circumference = 2 * Math.PI * 100;
-          const offset = circumference - (pct / 100) * circumference;
-          ring.style.strokeDashoffset = String(offset);
-          ring.style.stroke = pct >= 100 ? "#22c55e" : "#3b82f6";
-        }
+        if (ring) { const circumference = 2 * Math.PI * 100; ring.style.strokeDashoffset = String(circumference - (pct / 100) * circumference); ring.style.stroke = pct >= 100 ? "#22c55e" : "#ffb52e"; }
         const btn = document.getElementById("startPauseBtn");
-        if (btn) btn.textContent = studyTimerRunning ? "⏸️ إيقاف مؤقت" : (elapsed > 0 ? "▶️ استكمال" : "▶️ ابدأ");
+        if (btn) btn.textContent = studyTimerRunning ? "⏸️ إيقاف" : (elapsed > 0 ? "▶️ استكمال" : "▶️ ابدأ");
         const status = document.getElementById("timerStatus");
-        if (status) {
-          if (studyTimerRunning) status.textContent = "شغّال دلوقتي… ركّز وذاكر 📚";
-          else if (elapsed > 0) status.textContent = "متوقف مؤقتًا — كمّل لما تجهز ⏸️";
-          else status.textContent = "جاهز تبدأ؟ يلا بينا 💪";
-        }
+        if (status) status.textContent = studyTimerRunning ? "شغّال دلوقتي… ركّز وذاكر 📚" : (elapsed > 0 ? "متوقف مؤقتًا — كمّل لما تجهز" : "جاهز تبدأ؟ يلا بينا 💪");
+        document.querySelectorAll(".focus-chip").forEach((chip) => chip.classList.toggle("active", Number(chip.dataset.focus) === focusDurationMinutes));
       }
 
       function startStudyTick() {
@@ -546,7 +344,8 @@
           const data = await res.json();
           if (data.success) {
             const statToday = document.getElementById("statToday");
-            if (statToday) statToday.textContent = minutesLabel(data.todayMinutes || 0);
+            if (statToday) { statToday.textContent = minutesLabel(data.todayMinutes || 0); statToday.dataset.minutes = String(data.todayMinutes || 0); }
+            updateDailyProgress();
           }
         } catch (e) {
           /* تجاهل */
@@ -567,6 +366,9 @@
       /* =====================================================
          ربط الأحداث عند التحميل
       ===================================================== */
+      function renderStudySubjects() { const box=document.getElementById("subjectStrip"); if(!box) return; box.innerHTML=studySubjects.map(s=>`<button type="button" class="subject-pill ${s.key===selectedStudySubject?"active":""}" data-subject="${s.key}">${s.label}</button>`).join(""); }
+      function updateDailyProgress() { const goal=Math.max(1,studyGoalMinutes); const today=Number(document.getElementById("statToday")?.dataset.minutes||0); const pct=Math.min(100,Math.round(today/goal*100)); const fill=document.getElementById("dailyProgressFill"); if(fill) fill.style.width=pct+"%"; const label=document.getElementById("dailyGoalLabel"); if(label) label.textContent=`${minutesLabel(today)} من ${minutesLabel(goal)}`; const text=document.getElementById("dailyProgressText"); if(text) text.textContent=today>=goal?"أحسنت! حققت هدفك اليوم 🎉":"فاضل "+minutesLabel(Math.max(0,goal-today))+" وتحقق هدفك"; }
+      function setFocusDuration(minutes) { focusDurationMinutes=Math.max(5,Number(minutes)||25); localStorage.setItem("studyFocusMinutes",String(focusDurationMinutes)); updateTimerUI(); }
       window.addEventListener("DOMContentLoaded", () => {
         document.getElementById("studyPresets")?.addEventListener("click", (event) => {
           const btn = event.target.closest(".study-preset");
@@ -587,6 +389,10 @@
         document.getElementById("startPauseBtn")?.addEventListener("click", startPauseStudy);
         document.getElementById("finishBtn")?.addEventListener("click", finishStudy);
         document.getElementById("changeGoalBtn")?.addEventListener("click", changeStudyGoal);
+        document.getElementById("subjectStrip")?.addEventListener("click", (event) => { const btn=event.target.closest(".subject-pill"); if(!btn)return; selectedStudySubject=btn.dataset.subject; localStorage.setItem("studySubject",selectedStudySubject); renderStudySubjects(); });
+        document.querySelectorAll(".focus-chip").forEach((chip)=>chip.addEventListener("click",()=>setFocusDuration(chip.dataset.focus)));
+        renderStudySubjects();
+
 
         startStudyTick();
         refreshStudyStats();
