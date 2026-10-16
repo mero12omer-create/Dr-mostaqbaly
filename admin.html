@@ -44,6 +44,7 @@
         var tabMap = {
           tabBtnExams: "examsTab",
           tabBtnNotes: "notesTab",
+          tabBtnAssessments: "assessmentsTab",
           tabBtnStudents: "studentsTab",
         };
         Object.keys(tabMap).forEach(function (btnId) {
@@ -89,6 +90,9 @@
           addExamContentBtn: "addExamContent",
           uploadNoteBtn: "uploadNote",
           refreshNotesBtn: "loadNotes",
+          refreshExamsBtn: "loadAdminExams",
+          uploadAssessmentBtn: "uploadAssessment",
+          refreshAssessmentsBtn: "loadAssessments",
           resetAllBtn: "resetAll",
         };
         Object.keys(idFnMap).forEach(function (btnId) {
@@ -355,6 +359,9 @@
         <button id="tabBtnNotes" class="tab-btn">
           📚 إدارة المذكرات (PDF)
         </button>
+        <button id="tabBtnAssessments" class="tab-btn">
+          📝 التقييمات الأسبوعية
+        </button>
         <button id="tabBtnStudents" class="tab-btn">
           👨‍🎓 إدارة الطلاب
         </button>
@@ -497,6 +504,14 @@
             حفظ الدرس والسؤال 💾
           </button>
         </div>
+        <div class="admin-card" style="margin-top: 18px">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+            <h3>🗂️ الامتحانات المنشورة</h3>
+            <button id="refreshExamsBtn" class="btn-outline" type="button">🔄 تحديث القائمة</button>
+          </div>
+          <p style="font-size:13px; color:gray; line-height:1.8">هنا كل الامتحانات اللي نشرتها. تقدر تمسح أي امتحان بضغطة واحدة، وده هيمسح كمان محاولات الطلاب المرتبطة بيه.</p>
+          <div id="adminExamsList" class="note-list-grid" style="margin-top:12px"></div>
+        </div>
       </div>
 
       <div id="notesTab" class="tab-content" style="display: none">
@@ -547,6 +562,63 @@
             <select id="adminNotesSubjectFilter" class="admin-filter-select"></select>
           </div>
           <div id="notesList" class="note-list-grid"></div>
+        </div>
+      </div>
+
+      <div id="assessmentsTab" class="tab-content" style="display: none">
+        <div class="admin-card">
+          <h3>📝 إضافة تقييم أسبوعي جديد</h3>
+          <p style="font-size:13px; color:gray; line-height:1.8">ضع رابط Google Drive للتقييم الأسبوعي. سيظهر للطلاب في تبويب التقييمات الأسبوعية جوه صفحة المذكرات.</p>
+          <div class="note-manager-layout">
+            <div class="note-panel">
+              <div class="form-group">
+                <label for="assessSubSelect">المادة:</label>
+                <select id="assessSubSelect"></select>
+              </div>
+              <div class="form-group">
+                <label for="assessBranch">الفرع:</label>
+                <select id="assessBranch">
+                  <option value="عام">عام 🎓</option>
+                  <option value="أزهر">أزهر 🕌</option>
+                  <option value="مشترك">مشترك 🔄</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="assessTitle">عنوان التقييم:</label>
+                <input type="text" id="assessTitle" maxlength="180" placeholder="مثال: تقييم الأسبوع الأول - النحو" />
+              </div>
+              <div class="form-group">
+                <label for="assessWeek">الأسبوع:</label>
+                <input type="text" id="assessWeek" maxlength="60" placeholder="مثال: الأسبوع الأول" />
+              </div>
+              <div class="form-group">
+                <label for="assessOwnerName">اسم صاحب التقييم:</label>
+                <input type="text" id="assessOwnerName" maxlength="120" placeholder="مثال: أ/ محمد أحمد" />
+              </div>
+              <div class="form-group">
+                <label for="assessDriveUrl">رابط Google Drive:</label>
+                <input id="assessDriveUrl" type="url" dir="ltr" placeholder="https://drive.google.com/file/d/.../view" />
+              </div>
+              <button id="uploadAssessmentBtn" class="btn-main">حفظ رابط التقييم 🔗</button>
+              <div id="assessUploadStatus" style="font-size:13px; color:gray; margin-top:10px"></div>
+            </div>
+          </div>
+          <hr style="border:0; border-top:1px solid var(--border); margin:24px 0" />
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+            <h4 style="margin-bottom:10px">التقييمات المنشورة</h4>
+            <button id="refreshAssessmentsBtn" class="btn-outline" type="button">🔄 تحديث القائمة</button>
+          </div>
+          <div class="admin-filter-row" style="margin-bottom:12px">
+            <select id="adminAssessBranchFilter" class="admin-filter-select">
+              <option value="all">كل الفروع</option>
+              <option value="عام">عام</option>
+              <option value="أزهر">أزهر</option>
+              <option value="مشترك">مشترك</option>
+            </select>
+            <select id="adminAssessGroupFilter" class="admin-filter-select"></select>
+            <select id="adminAssessSubjectFilter" class="admin-filter-select"></select>
+          </div>
+          <div id="assessmentsList" class="note-list-grid"></div>
         </div>
       </div>
 
@@ -659,6 +731,8 @@
             document.getElementById("statusBanner").style.display = "none";
             initSelectors();
             loadNotes();
+            loadAdminExams();
+            loadAssessments();
             loadStudents();
           } else {
             showBanner("❌ فشل الدخول: " + (data.message || "كلمة السر غير صحيحة!"));
@@ -689,6 +763,10 @@
           button?.classList.add("active");
           if (id === "studentsTab") {
             loadStudents();
+          } else if (id === "assessmentsTab") {
+            loadAssessments();
+          } else if (id === "examsTab") {
+            loadAdminExams();
           }
         } catch (e) {
           showBanner("❌ خطأ أثناء تبديل التاب: " + (e && e.message ? e.message : e));
@@ -699,15 +777,18 @@
         const exSel = document.getElementById("examSubSelect");
         const ntSel = document.getElementById("noteSubSelect");
         const aiSel = document.getElementById("aiExamSubSelect");
+        const asSel = document.getElementById("assessSubSelect");
         const exBranch = document.getElementById("examBranch");
         const ntBranch = document.getElementById("noteBranch");
         const aiBranch = document.getElementById("aiExamBranch");
+        const asBranch = document.getElementById("assessBranch");
         const sync = () => {
           fillSubjectSelect(exSel, exBranch?.value || "عام", exSel?.value);
           fillSubjectSelect(ntSel, ntBranch?.value || "عام", ntSel?.value);
           fillSubjectSelect(aiSel, aiBranch?.value || "عام", aiSel?.value);
+          fillSubjectSelect(asSel, asBranch?.value || "عام", asSel?.value);
         };
-        [exBranch, ntBranch, aiBranch].forEach((select) => select?.addEventListener("change", sync));
+        [exBranch, ntBranch, aiBranch, asBranch].forEach((select) => select?.addEventListener("change", sync));
         sync();
       }
 
@@ -976,6 +1057,15 @@
               <div style="font-size:13px; color:gray;">📱 ${escapeAdminHtml(user.phone)} • ✉️ ${escapeAdminHtml(user.email || "-")}</div>
               <div style="font-size:13px; color:gray; margin-top:4px;">النظام: ${escapeAdminHtml(user.branch || "عام")} • النقاط: ${escapeAdminHtml(user.points)} • الحالة: ${user.disabled ? "🔴 معطل" : "🟢 نشط"}</div>
             </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:10px 0; border-top:1px dashed var(--border); border-bottom:1px dashed var(--border);">
+              <label style="font-size:13px; color:gray;">تعديل النقاط:</label>
+              <input type="number" id="pointsAdjustInput" value="${Number(user.points) || 0}" min="0" style="width:120px; padding:8px;" />
+              <button class="btn-outline" type="button" data-points="delta" data-delta="10">➕ 10</button>
+              <button class="btn-outline" type="button" data-points="delta" data-delta="-10">➖ 10</button>
+              <button class="btn-outline" type="button" data-points="delta" data-delta="50">➕ 50</button>
+              <button class="btn-outline" type="button" data-points="delta" data-delta="-50">➖ 50</button>
+              <button class="btn-main" type="button" data-points="set" style="padding:8px 14px;">💾 حفظ القيمة</button>
+            </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
               <button class="btn-outline" type="button" data-action="toggle">
                 ${user.disabled ? "تفعيل الحساب ✅" : "تعطيل الحساب 🚫"}
@@ -991,6 +1081,8 @@
         box.querySelector('[data-action="toggle"]')?.addEventListener("click", () => toggleStudentDisabled(user.phone, !Boolean(user.disabled)));
         box.querySelector('[data-action="reset"]')?.addEventListener("click", () => resetStudentPassword(user.phone));
         box.querySelector('[data-action="delete"]')?.addEventListener("click", () => deleteStudent(user.phone));
+        box.querySelectorAll('[data-points="delta"]').forEach((btn) => btn.addEventListener("click", () => adjustStudentPoints(user.phone, Number(btn.dataset.delta))));
+        box.querySelector('[data-points="set"]')?.addEventListener("click", () => setStudentPoints(user.phone, document.getElementById("pointsAdjustInput").value));
       }
 
       async function toggleStudentDisabled(phone, disable) {
@@ -1293,6 +1385,249 @@
           renderAdminNotes();
         } catch (err) {
           list.innerHTML = '<div class="note-empty-state">تعذر تحميل المذكرات من السيرفر</div>';
+        }
+      }
+
+      // =================================
+      // تعديل نقاط الطلاب (زيادة/نقصان بحرية)
+      // =================================
+      async function adjustStudentPoints(phone, delta) {
+        try {
+          const res = await fetch("/api/admin/users/adjust-points", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-admin-token": adminToken },
+            body: JSON.stringify({ phone, delta }),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            alert(data.message || "تعذر تعديل النقاط");
+            return;
+          }
+          alert(data.message || "تم تعديل النقاط");
+          searchStudent();
+        } catch (err) {
+          alert("تعذر الاتصال بالسيرفر");
+        }
+      }
+
+      async function setStudentPoints(phone, value) {
+        const points = Number(value);
+        if (!Number.isFinite(points) || points < 0) {
+          alert("أدخل قيمة نقاط صحيحة (صفر أو أكثر)");
+          return;
+        }
+        try {
+          const res = await fetch("/api/admin/users/adjust-points", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-admin-token": adminToken },
+            body: JSON.stringify({ phone, points }),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            alert(data.message || "تعذر تعديل النقاط");
+            return;
+          }
+          alert(data.message || "تم تعديل النقاط");
+          searchStudent();
+        } catch (err) {
+          alert("تعذر الاتصال بالسيرفر");
+        }
+      }
+
+      // =================================
+      // الامتحانات المنشورة (عرض + حذف)
+      // =================================
+      let adminExamsData = [];
+      async function loadAdminExams() {
+        const list = document.getElementById("adminExamsList");
+        if (!list) return;
+        list.innerHTML = '<div class="note-empty-state">جاري تحميل الامتحانات...</div>';
+        try {
+          const res = await fetch("/api/admin/exams", { headers: { "x-admin-token": adminToken } });
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            list.innerHTML = '<div class="note-empty-state">تعذر تحميل الامتحانات</div>';
+            return;
+          }
+          adminExamsData = data.exams || [];
+          renderAdminExams();
+        } catch (err) {
+          list.innerHTML = '<div class="note-empty-state">تعذر تحميل الامتحانات من السيرفر</div>';
+        }
+      }
+
+      function renderAdminExams() {
+        const list = document.getElementById("adminExamsList");
+        if (!list) return;
+        if (!adminExamsData.length) {
+          list.innerHTML = '<div class="note-empty-state">لا توجد امتحانات منشورة بعد</div>';
+          return;
+        }
+        list.innerHTML = adminExamsData.map((exam) => `
+          <div class="note-list-item">
+            <div>
+              <strong>${escapeAdminHtml(exam.lessonTitle || "امتحان")}</strong>
+              <div style="font-size:13px; color:gray;">${escapeAdminHtml(exam.subjectName || "")} • ${escapeAdminHtml(exam.branch || "عام")}</div>
+              <div style="font-size:12px; color:gray; margin-top:4px;">عدد الأسئلة: ${Number(exam.questionCount) || 0}</div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button type="button" class="btn-outline" data-delete-exam="${Number(exam.id)}" style="padding:6px 10px; font-size:12px; color:#dc2626; border-color:#dc2626;">🗑️ حذف الامتحان</button>
+            </div>
+          </div>`).join("");
+      }
+
+      async function deleteAdminExam(id) {
+        if (!confirm("متأكد إنك عايز تحذف الامتحان ده نهائيًا؟ هيتحذف مع محاولات الطلاب المرتبطة بيه.")) return;
+        try {
+          const res = await fetch("/api/admin/exams/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-admin-token": adminToken },
+            body: JSON.stringify({ id }),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            alert(data.message || "تعذر حذف الامتحان");
+            return;
+          }
+          adminExamsData = adminExamsData.filter((e) => Number(e.id) !== Number(id));
+          renderAdminExams();
+        } catch (err) {
+          alert("تعذر الاتصال بالسيرفر، لم يتم الحذف");
+        }
+      }
+
+      document.addEventListener("click", (event) => {
+        const btn = event.target.closest("[data-delete-exam]");
+        if (btn) deleteAdminExam(Number(btn.dataset.deleteExam));
+      });
+
+      // =================================
+      // التقييمات الأسبوعية (إضافة رابط Drive + عرض + حذف)
+      // =================================
+      let adminAssessmentsData = [];
+      async function uploadAssessment() {
+        const subjectKey = document.getElementById("assessSubSelect").value;
+        const branch = document.getElementById("assessBranch").value;
+        const title = document.getElementById("assessTitle").value.trim();
+        const week = document.getElementById("assessWeek").value.trim();
+        const ownerName = document.getElementById("assessOwnerName").value.trim();
+        const fileUrl = document.getElementById("assessDriveUrl").value.trim();
+        const status = document.getElementById("assessUploadStatus");
+        const button = document.getElementById("uploadAssessmentBtn");
+        if (!title || !fileUrl) return alert("أكمل عنوان التقييم ورابط Google Drive");
+        button.disabled = true;
+        try {
+          const res = await fetch("/api/admin/assessments/drive", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-admin-token": adminToken },
+            body: JSON.stringify({ subjectKey, subjectName: SUBJECTS[subjectKey], branch, title, week, ownerName, fileUrl }),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) throw Error(data.message || "تعذر حفظ التقييم");
+          document.getElementById("assessTitle").value = "";
+          document.getElementById("assessWeek").value = "";
+          document.getElementById("assessDriveUrl").value = "";
+          status.textContent = "تم نشر التقييم بنجاح";
+          loadAssessments();
+        } catch (e) {
+          status.textContent = e.message;
+          alert(e.message);
+        } finally {
+          button.disabled = false;
+        }
+      }
+
+      function initAdminAssessFilters() {
+        const branchFilter = document.getElementById("adminAssessBranchFilter");
+        const groupFilter = document.getElementById("adminAssessGroupFilter");
+        const subjectFilter = document.getElementById("adminAssessSubjectFilter");
+        if (!branchFilter || !groupFilter || !subjectFilter) return;
+        const updateOptions = () => {
+          const branch = branchFilter.value === "أزهر" ? "أزهر" : "عام";
+          const groups = SubjectCatalog.getGroupsForBranch(branch);
+          groupFilter.innerHTML = `<option value="all">كل المجموعات</option>${groups.map((group) => `<option value="${group.key}">${escapeAdminHtml(group.label)}</option>`).join("")}`;
+          subjectFilter.innerHTML = `<option value="all">كل المواد</option>${groups.flatMap((group) => group.subjects).map((subject) => `<option value="${subject.key}">${escapeAdminHtml(subject.label)}</option>`).join("")}`;
+          renderAdminAssessments();
+        };
+        if (!branchFilter.dataset.bound) {
+          branchFilter.addEventListener("change", updateOptions);
+          groupFilter.addEventListener("change", renderAdminAssessments);
+          subjectFilter.addEventListener("change", renderAdminAssessments);
+          branchFilter.dataset.bound = "1";
+        }
+        updateOptions();
+      }
+
+      function renderAdminAssessments() {
+        const list = document.getElementById("assessmentsList");
+        if (!list) return;
+        const branch = document.getElementById("adminAssessBranchFilter")?.value || "all";
+        const group = document.getElementById("adminAssessGroupFilter")?.value || "all";
+        const subject = document.getElementById("adminAssessSubjectFilter")?.value || "all";
+        const items = adminAssessmentsData.filter((a) => {
+          const aSubject = SubjectCatalog.normalizeSubjectKey(a.subjectKey);
+          const aGroup = a.subjectGroup || SubjectCatalog.getSubjectGroup(aSubject, a.branch);
+          return (branch === "all" || a.branch === branch) && (group === "all" || aGroup === group) && (subject === "all" || aSubject === subject);
+        });
+        if (!items.length) {
+          list.innerHTML = '<div class="note-empty-state">لا توجد تقييمات بهذا الفلتر</div>';
+          return;
+        }
+        list.innerHTML = items.map((a) => `
+          <div class="note-list-item">
+            <div>
+              <strong>${escapeAdminHtml(a.title || "تقييم")}</strong>
+              <div style="font-size:13px; color:gray;">${escapeAdminHtml(a.subjectName || "")} • ${escapeAdminHtml(a.branch || "عام")}${a.week ? " • " + escapeAdminHtml(a.week) : ""}</div>
+              <div style="font-size:12px; color:gray; margin-top:4px;">صاحب التقييم: ${escapeAdminHtml(a.ownerName || "غير محدد")}</div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <a href="${escapeAdminHtml(a.fileUrl || "#")}" target="_blank" rel="noopener noreferrer" class="btn-outline" style="padding:6px 10px; font-size:12px;">فتح الملف</a>
+              <button type="button" class="btn-outline" data-delete-assess="${Number(a.id)}" style="padding:6px 10px; font-size:12px; color:#dc2626; border-color:#dc2626;">🗑️ حذف</button>
+            </div>
+          </div>`).join("");
+      }
+
+      async function deleteAdminAssessment(id) {
+        if (!confirm("متأكد إنك عايز تحذف التقييم ده نهائيًا؟")) return;
+        try {
+          const res = await fetch("/api/admin/assessments/delete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-admin-token": adminToken },
+            body: JSON.stringify({ id }),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            alert(data.message || "تعذر حذف التقييم");
+            return;
+          }
+          adminAssessmentsData = adminAssessmentsData.filter((a) => Number(a.id) !== Number(id));
+          renderAdminAssessments();
+        } catch (err) {
+          alert("تعذر الاتصال بالسيرفر، لم يتم الحذف");
+        }
+      }
+
+      document.addEventListener("click", (event) => {
+        const btn = event.target.closest("[data-delete-assess]");
+        if (btn) deleteAdminAssessment(Number(btn.dataset.deleteAssess));
+      });
+
+      async function loadAssessments() {
+        const list = document.getElementById("assessmentsList");
+        if (!list) return;
+        list.innerHTML = '<div class="note-empty-state">جاري تحميل التقييمات...</div>';
+        try {
+          const res = await fetch("/api/admin/assessments", { headers: { "x-admin-token": adminToken } });
+          const data = await res.json();
+          if (!res.ok || !data.success) {
+            list.innerHTML = '<div class="note-empty-state">تعذر تحميل التقييمات</div>';
+            return;
+          }
+          adminAssessmentsData = data.assessments || [];
+          initAdminAssessFilters();
+          renderAdminAssessments();
+        } catch (err) {
+          list.innerHTML = '<div class="note-empty-state">تعذر تحميل التقييمات من السيرفر</div>';
         }
       }
 

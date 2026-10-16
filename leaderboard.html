@@ -1,15 +1,82 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>لوحة الصدارة - دكتور مستقبلي 🩺</title>
+    <title>لوحة الصدارة - دكتور مستبقي 🩺</title>
     <link rel="stylesheet" href="style.css" />
     <style>
       .leaderboard-container {
         max-width: 800px;
         margin: 40px auto;
         padding: 20px;
+      }
+      .lb-tabs {
+        display: flex;
+        gap: 8px;
+        margin: 0 0 22px;
+        overflow-x: auto;
+        padding-bottom: 6px;
+        border-bottom: 2px solid var(--border, #e5e7eb);
+        justify-content: center;
+      }
+      .lb-tab {
+        background: transparent;
+        border: none;
+        color: var(--text, #333);
+        padding: 12px 22px;
+        border-radius: 12px 12px 0 0;
+        cursor: pointer;
+        font-weight: 700;
+        font-size: 15px;
+        white-space: nowrap;
+        font-family: inherit;
+        border-bottom: 3px solid transparent;
+        margin-bottom: -2px;
+        transition: all 0.2s ease;
+      }
+      .lb-tab:hover {
+        background: rgba(37, 99, 235, 0.08);
+        color: #2563eb;
+      }
+      .lb-tab.active {
+        color: #2563eb;
+        border-bottom-color: #2563eb;
+        background: rgba(37, 99, 235, 0.06);
+      }
+      .lb-panel {
+        display: none;
+        animation: fadeIn 0.3s ease;
+      }
+      .lb-panel.active {
+        display: block;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(6px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .range-filters {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        margin-bottom: 22px;
+        flex-wrap: wrap;
+      }
+      .range-btn {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 9px 20px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-weight: 700;
+        font-family: inherit;
+      }
+      .range-btn.active,
+      .range-btn:hover {
+        background: #2563eb;
+        color: #fff;
+        border-color: #2563eb;
       }
       .top-three {
         display: flex;
@@ -33,18 +100,10 @@
         order: 2;
         border-color: #eab308;
         transform: scale(1.05);
-        background: linear-gradient(
-          180deg,
-          rgba(234, 179, 8, 0.08) 0%,
-          var(--card-bg) 100%
-        );
+        background: linear-gradient(180deg, rgba(234, 179, 8, 0.08) 0%, var(--card-bg) 100%);
       }
-      .podium-card.second {
-        order: 1;
-      }
-      .podium-card.third {
-        order: 3;
-      }
+      .podium-card.second { order: 1; }
+      .podium-card.third { order: 3; }
       .crown {
         font-size: 28px;
         margin-bottom: 5px;
@@ -59,7 +118,6 @@
         color: var(--primary);
         font-weight: bold;
       }
-
       .rank-list {
         background: var(--card-bg);
         border: 1px solid var(--border);
@@ -94,16 +152,15 @@
         flex: 1;
       }
     </style>
-  </head>
+  <script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
   <body>
     <header class="fixed-header">
       <div class="navbar">
-        <h2 class="logo">دكتور مستقبلي 🩺</h2>
+        <h2 class="logo">دكتور مستبقي 🩺</h2>
         <div class="nav-actions">
           <a href="index.html" class="icon-btn" title="الرئيسية">🏠</a>
-          <button class="icon-btn" id="themeToggle" title="تغيير المظهر">
-            🌙
-          </button>
+          <button class="icon-btn" id="themeToggle" title="تغيير المظهر">🌙</button>
         </div>
       </div>
     </header>
@@ -112,22 +169,68 @@
       <div style="text-align: center; margin-bottom: 25px">
         <h2>🏆 لوحة أبطال المستقبل</h2>
         <p style="color: gray; font-size: 14px">
-          ترتيب الدكاترة بناءً على حل الأسئلة وتجميع النقاط ⭐
+          نافس أصحابك في النقاط وفي أوقات المذاكرة ⭐
         </p>
       </div>
 
-      <div class="top-three" id="topThreeBox"></div>
+      <!-- ===== توكيمات لوحة الصدارة ===== -->
+      <div class="lb-tabs" id="lbTabs">
+        <button class="lb-tab active" data-tab="points">⭐ نقاط الطلاب</button>
+        <button class="lb-tab" data-tab="study">⏱️ أوقات مذاكرة</button>
+      </div>
 
-      <div class="rank-list" id="rankListBox"></div>
+      <!-- ===== تبويب نقاط الطلاب ===== -->
+      <section id="panel-points" class="lb-panel active">
+        <div class="top-three" id="topThreeBox"></div>
+        <div class="rank-list" id="rankListBox"></div>
+      </section>
+
+      <!-- ===== تبويب أوقات مذاكرة ===== -->
+      <section id="panel-study" class="lb-panel">
+        <div class="range-filters" id="rangeFilters">
+          <button class="range-btn active" data-range="daily">📅 النهارده</button>
+          <button class="range-btn" data-range="weekly">🗓️ الأسبوعي</button>
+          <button class="range-btn" data-range="monthly">📆 الشهري</button>
+        </div>
+        <div class="top-three" id="studyTopThreeBox"></div>
+        <div class="rank-list" id="studyRankListBox"></div>
+      </section>
     </main>
 
     <script src="script.js"></script>
     <script>
+      /* ===== أدوات ===== */
+      const escapeLb = (value) => String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+      function minutesLabel(mins) {
+        const m = Math.max(0, Math.round(Number(mins) || 0));
+        const h = Math.floor(m / 60);
+        const r = m % 60;
+        if (h && r) return `${h} س ${r} د`;
+        if (h) return `${h} ساعة`;
+        return `${r} دقيقة`;
+      }
+
+      /* ===== توكيمات ===== */
+      function activateLbTab(name) {
+        document.querySelectorAll(".lb-tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+        document.querySelectorAll(".lb-panel").forEach((p) => p.classList.toggle("active", p.id === "panel-" + name));
+        if (name === "study") loadStudyLeaderboard(currentRange);
+      }
+      document.getElementById("lbTabs")?.addEventListener("click", (event) => {
+        const btn = event.target.closest(".lb-tab");
+        if (btn) activateLbTab(btn.dataset.tab);
+      });
+
+      /* ===== تبويب النقاط ===== */
       async function loadLeaderboard() {
         let users = [];
         const myName = localStorage.getItem("userName") || "";
-
-        // جلب الطلاب من السيرفر
         try {
           const response = await fetch("/api/leaderboard");
           const data = await response.json();
@@ -146,27 +249,24 @@
         const rankListBox = document.getElementById("rankListBox");
 
         if (users.length === 0) {
+          topThreeBox.innerHTML = "";
           rankListBox.innerHTML =
-            '<p style="text-align:center; color:gray; padding:20px;">لا يوجد طلاب مسجلين حالياً 📝</p>';
+            '<p style="text-align:center; color:gray; padding:20px;">لا يوجد طلاب مسجلين حاليًا 📝</p>';
           return;
         }
 
-        // عرض الثلاثة الأوائل
         const icons = ["🥇", "🥈", "🥉"];
         const classes = ["first", "second", "third"];
         topThreeBox.innerHTML = "";
-
         for (let i = 0; i < Math.min(3, users.length); i++) {
           topThreeBox.innerHTML += `
         <div class="podium-card ${classes[i]}">
           <div class="crown">${icons[i]}</div>
-          <div class="podium-name">${users[i].name}</div>
-          <div class="podium-pts">${users[i].points} نقطة ⭐</div>
-        </div>
-      `;
+          <div class="podium-name">${escapeLb(users[i].name)}</div>
+          <div class="podium-pts">${escapeLb(users[i].points)} نقطة ⭐</div>
+        </div>`;
         }
 
-        // عرض باقي الترتيب (من الرابع فما فوق)
         rankListBox.innerHTML = "";
         users.forEach((u, idx) => {
           const isMe = Boolean(myName && u.name === myName);
@@ -175,15 +275,80 @@
           <div class="rank-num">#${idx + 1}</div>
           <div class="user-info-box">
             <span>👨‍⚕️</span>
-            <strong>${u.name} ${isMe ? " (أنت) 👈" : ""}</strong>
+            <strong>${escapeLb(u.name)} ${isMe ? " (أنت) 👈" : ""}</strong>
           </div>
-          <div style="font-weight: bold; color: var(--primary);">${u.points} ⭐</div>
-        </div>
-      `;
+          <div style="font-weight: bold; color: var(--primary);">${escapeLb(u.points)} ⭐</div>
+        </div>`;
         });
       }
 
-      window.onload = loadLeaderboard;
+      /* ===== تبويب أوقات المذاكرة ===== */
+      let currentRange = "daily";
+      document.getElementById("rangeFilters")?.addEventListener("click", (event) => {
+        const btn = event.target.closest(".range-btn");
+        if (!btn) return;
+        currentRange = btn.dataset.range;
+        document.querySelectorAll(".range-btn").forEach((b) => b.classList.toggle("active", b === btn));
+        loadStudyLeaderboard(currentRange);
+      });
+
+      async function loadStudyLeaderboard(range) {
+        const topThreeBox = document.getElementById("studyTopThreeBox");
+        const rankListBox = document.getElementById("studyRankListBox");
+        topThreeBox.innerHTML = "";
+        rankListBox.innerHTML = '<p style="text-align:center; color:gray; padding:20px;">جاري التحميل… ⏳</p>';
+        let users = [];
+        const myName = localStorage.getItem("userName") || "";
+        try {
+          const res = await fetch(`/api/study/leaderboard?range=${encodeURIComponent(range)}`);
+          const data = await res.json();
+          if (data.success) {
+            users = (data.leaderboard || []).map((s) => ({
+              name: s.name || "طالب مجهول",
+              minutes: Number(s.minutes) || 0,
+            }));
+          }
+        } catch (e) {
+          console.log("تعذر جلب ترتيب أوقات المذاكرة:", e);
+        }
+
+        if (!users.length) {
+          rankListBox.innerHTML =
+            '<p style="text-align:center; color:gray; padding:20px;">لا يوجد تسجيل مذاكرة في هذه الفترة بعد ⏱️<br><span style="font-size:13px">كن أول من يسجّل وقت مذاكرة من تبويب «ابدأ مذاكرة»!</span></p>';
+          return;
+        }
+
+        const icons = ["🥇", "🥈", "🥉"];
+        const classes = ["first", "second", "third"];
+        for (let i = 0; i < Math.min(3, users.length); i++) {
+          topThreeBox.innerHTML += `
+        <div class="podium-card ${classes[i]}">
+          <div class="crown">${icons[i]}</div>
+          <div class="podium-name">${escapeLb(users[i].name)}</div>
+          <div class="podium-pts">${escapeLb(minutesLabel(users[i].minutes))} ⏱️</div>
+        </div>`;
+        }
+
+        rankListBox.innerHTML = "";
+        users.forEach((u, idx) => {
+          const isMe = Boolean(myName && u.name === myName);
+          rankListBox.innerHTML += `
+        <div class="rank-item ${isMe ? "is-me" : ""}">
+          <div class="rank-num">#${idx + 1}</div>
+          <div class="user-info-box">
+            <span>📚</span>
+            <strong>${escapeLb(u.name)} ${isMe ? " (أنت) 👈" : ""}</strong>
+          </div>
+          <div style="font-weight: bold; color: var(--primary);">${escapeLb(minutesLabel(u.minutes))}</div>
+        </div>`;
+        });
+      }
+
+      window.addEventListener("DOMContentLoaded", () => {
+        loadLeaderboard();
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("tab") === "study") activateLbTab("study");
+      });
     </script>
   </body>
 </html>

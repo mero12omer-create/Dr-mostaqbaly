@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="ar" dir="rtl">
   <head>
     <script>
@@ -21,9 +21,55 @@
     </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>بنك المذكرات - دكتور مستقبلي 🩺</title>
+    <title>بنك المذكرات - دكتور مستبقي 🩺</title>
     <link rel="stylesheet" href="style.css" />
     <style>
+      /* ===== توكيمات الصفحة ===== */
+      .page-tabs {
+        display: flex;
+        gap: 8px;
+        margin: 0 0 22px;
+        overflow-x: auto;
+        padding-bottom: 6px;
+        border-bottom: 2px solid var(--border, #e5e7eb);
+      }
+      .page-tab {
+        background: transparent;
+        border: none;
+        color: var(--text, #333);
+        padding: 12px 18px;
+        border-radius: 12px 12px 0 0;
+        cursor: pointer;
+        font-weight: 700;
+        font-size: 15px;
+        white-space: nowrap;
+        font-family: inherit;
+        border-bottom: 3px solid transparent;
+        margin-bottom: -2px;
+        transition: all 0.2s ease;
+      }
+      .page-tab:hover {
+        background: rgba(37, 99, 235, 0.08);
+        color: #2563eb;
+      }
+      .page-tab.active {
+        color: #2563eb;
+        border-bottom-color: #2563eb;
+        background: rgba(37, 99, 235, 0.06);
+      }
+      .page-tab-panel {
+        display: none;
+        animation: fadeIn 0.3s ease;
+      }
+      .page-tab-panel.active {
+        display: block;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(6px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      /* ===== فلاتر ===== */
       .filter-bar {
         display: flex;
         gap: 10px;
@@ -92,6 +138,8 @@
         font-weight: bold;
         cursor: pointer;
         display: inline-block;
+        border: none;
+        font-family: inherit;
       }
       .btn-read {
         border: 1px solid #2563eb;
@@ -103,58 +151,444 @@
         color: #fff;
         border: none;
       }
+
+      /* ===== التقييمات الأسبوعية ===== */
+      .assess-card {
+        background: var(--card-bg, #fff);
+        border: 1px solid var(--border, #ccc);
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        border-top: 4px solid #8b5cf6;
+      }
+      .assess-icon-box {
+        width: 50px;
+        height: 50px;
+        background: rgba(139, 92, 246, 0.12);
+        color: #8b5cf6;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        margin-bottom: 12px;
+      }
+
+      /* ===== تايمر المذاكرة ===== */
+      .study-wrap {
+        max-width: 520px;
+        margin: 0 auto;
+      }
+      .study-card {
+        background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%);
+        border-radius: 24px;
+        padding: 28px 22px;
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.35);
+        color: #f8fafc;
+        text-align: center;
+      }
+      .study-card h3 {
+        font-size: 22px;
+        margin-bottom: 6px;
+        color: #fff;
+      }
+      .study-card .study-sub {
+        font-size: 13px;
+        color: #94a3b8;
+        margin-bottom: 22px;
+      }
+      .study-presets {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin-bottom: 18px;
+      }
+      .study-preset {
+        background: rgba(148, 163, 184, 0.12);
+        border: 1.5px solid rgba(148, 163, 184, 0.25);
+        color: #e2e8f0;
+        border-radius: 14px;
+        padding: 14px 6px;
+        cursor: pointer;
+        font-weight: 700;
+        font-size: 15px;
+        font-family: inherit;
+        transition: all 0.18s ease;
+      }
+      .study-preset:hover {
+        border-color: #60a5fa;
+      }
+      .study-preset.active {
+        background: linear-gradient(160deg, #2563eb, #3b82f6);
+        border-color: #60a5fa;
+        color: #fff;
+        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.45);
+      }
+      .study-adjuster {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        margin: 18px 0 8px;
+      }
+      .study-adjuster button {
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        border: 1.5px solid rgba(148, 163, 184, 0.35);
+        background: rgba(148, 163, 184, 0.12);
+        color: #fff;
+        font-size: 24px;
+        cursor: pointer;
+        font-family: inherit;
+        line-height: 1;
+      }
+      .study-adjuster button:hover {
+        background: rgba(96, 165, 250, 0.25);
+        border-color: #60a5fa;
+      }
+      .study-goal-value {
+        min-width: 150px;
+      }
+      .study-goal-value .num {
+        font-size: 34px;
+        font-weight: 800;
+        color: #fff;
+      }
+      .study-goal-value .unit {
+        font-size: 14px;
+        color: #94a3b8;
+      }
+      .study-unit-toggle {
+        display: inline-flex;
+        background: rgba(148, 163, 184, 0.14);
+        border-radius: 12px;
+        padding: 4px;
+        margin: 8px 0 20px;
+      }
+      .study-unit-toggle button {
+        border: none;
+        background: transparent;
+        color: #cbd5e1;
+        padding: 8px 18px;
+        border-radius: 9px;
+        cursor: pointer;
+        font-weight: 700;
+        font-family: inherit;
+      }
+      .study-unit-toggle button.active {
+        background: #2563eb;
+        color: #fff;
+      }
+      .study-save-btn {
+        width: 100%;
+        padding: 15px;
+        border: none;
+        border-radius: 14px;
+        background: linear-gradient(160deg, #2563eb, #1d4ed8);
+        color: #fff;
+        font-size: 16px;
+        font-weight: 800;
+        cursor: pointer;
+        font-family: inherit;
+        box-shadow: 0 10px 24px rgba(37, 99, 235, 0.4);
+      }
+      .study-save-btn:hover {
+        filter: brightness(1.08);
+      }
+      .timer-display {
+        font-size: 60px;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: 2px;
+        color: #fff;
+        margin: 6px 0 4px;
+        direction: ltr;
+      }
+      .timer-ring {
+        position: relative;
+        width: 230px;
+        height: 230px;
+        margin: 6px auto 18px;
+      }
+      .timer-ring svg {
+        transform: rotate(-90deg);
+      }
+      .timer-ring .timer-center {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .timer-goal-label {
+        font-size: 13px;
+        color: #94a3b8;
+        margin-top: 2px;
+      }
+      .timer-status {
+        font-size: 14px;
+        color: #93c5fd;
+        margin-bottom: 18px;
+        min-height: 20px;
+      }
+      .timer-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .timer-actions button {
+        padding: 13px 24px;
+        border-radius: 14px;
+        border: none;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .timer-start {
+        background: linear-gradient(160deg, #22c55e, #16a34a);
+        color: #fff;
+        box-shadow: 0 8px 20px rgba(34, 197, 94, 0.4);
+      }
+      .timer-finish {
+        background: linear-gradient(160deg, #ef4444, #dc2626);
+        color: #fff;
+        box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
+      }
+      .timer-change {
+        background: rgba(148, 163, 184, 0.16);
+        color: #e2e8f0;
+        border: 1.5px solid rgba(148, 163, 184, 0.3) !important;
+      }
+      .study-stats {
+        margin-top: 18px;
+        font-size: 13px;
+        color: #94a3b8;
+        display: flex;
+        justify-content: center;
+        gap: 18px;
+        flex-wrap: wrap;
+      }
+      .study-stats b {
+        color: #93c5fd;
+      }
+      .study-success {
+        margin-top: 16px;
+        padding: 14px;
+        border-radius: 14px;
+        background: rgba(34, 197, 94, 0.15);
+        border: 1px solid rgba(34, 197, 94, 0.4);
+        color: #bbf7d0;
+        font-size: 14px;
+        display: none;
+      }
+      @media (max-width: 560px) {
+        .study-presets { grid-template-columns: repeat(2, 1fr); }
+        .timer-display { font-size: 46px; }
+        .timer-ring { width: 190px; height: 190px; }
+      }
     </style>
-  </head>
+  <script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
+</head>
   <body>
     <div id="statusBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; background:#dc2626; color:#fff; padding:14px; font-size:15px; text-align:center; direction:rtl; word-break:break-word;"></div>
     <header class="fixed-header">
       <div class="navbar">
-        <h2 class="logo">دكتور مستقبلي 🩺</h2>
+        <h2 class="logo">دكتور مستبقي 🩺</h2>
+        <div class="nav-actions">
+          <a href="index.html" class="icon-btn" title="الرئيسية">🏠</a>
+          <button class="icon-btn" id="themeToggle" title="تغيير المظهر">🌙</button>
+        </div>
       </div>
     </header>
 
     <main class="container" style="margin-top: 80px; padding: 20px">
-      <h2 class="section-title">📚 مكتبة المذكرات والملخصات (PDF)</h2>
+      <h2 class="section-title">📚 بنك المذكرات والتقييمات</h2>
 
-      <div
-        style="
-          margin-bottom: 16px;
-          padding: 12px 14px;
-          background: rgba(37, 99, 235, 0.08);
-          border: 1px solid rgba(37, 99, 235, 0.2);
-          border-radius: 12px;
-          color: var(--text);
-        "
-      >
-        المحتوى المعروض الآن للنظام: <strong id="notesBranchLabel">عام</strong>
+      <!-- ===== التوكيمات ===== -->
+      <div class="page-tabs" id="pageTabs">
+        <button class="page-tab active" data-tab="notes">📚 المذكرات</button>
+        <button class="page-tab" data-tab="assessments">📝 التقييمات الأسبوعية</button>
+        <button class="page-tab" data-tab="study">⏱️ ابدأ مذاكرة</button>
       </div>
 
-      <div class="content-filter-panel">
-        <div class="filter-select-row">
-          <label for="notesBranchSelect">النظام الدراسي</label>
-          <select id="notesBranchSelect" class="content-select">
-            <option value="عام">عام 🎓</option>
-            <option value="أزهر">أزهر 🕌</option>
-          </select>
+      <!-- ============ تبويب المذكرات ============ -->
+      <section id="tab-notes" class="page-tab-panel active">
+        <div
+          style="
+            margin-bottom: 16px;
+            padding: 12px 14px;
+            background: rgba(37, 99, 235, 0.08);
+            border: 1px solid rgba(37, 99, 235, 0.2);
+            border-radius: 12px;
+            color: var(--text);
+          "
+        >
+          المحتوى المعروض الآن للنظام: <strong id="notesBranchLabel">عام</strong>
         </div>
-        <div class="filter-caption">اختر المجموعة ثم المادة</div>
-        <div class="filter-bar" id="groupFilterBar"></div>
-        <div class="filter-bar" id="subjectFilterBar"></div>
-      </div>
 
-      <div
-        class="cards-grid-4"
-        id="notesGrid"
-        style="
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-          gap: 20px;
-        "
-      ></div>
+        <div class="content-filter-panel">
+          <div class="filter-select-row">
+            <label for="notesBranchSelect">النظام الدراسي</label>
+            <select id="notesBranchSelect" class="content-select">
+              <option value="عام">عام 🎓</option>
+              <option value="أزهر">أزهر 🕌</option>
+            </select>
+          </div>
+          <div class="filter-caption">اختر المجموعة ثم المادة</div>
+          <div class="filter-bar" id="groupFilterBar"></div>
+          <div class="filter-bar" id="subjectFilterBar"></div>
+        </div>
+
+        <div
+          class="cards-grid-4"
+          id="notesGrid"
+          style="
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+          "
+        ></div>
+      </section>
+
+      <!-- ============ تبويب التقييمات الأسبوعية ============ -->
+      <section id="tab-assessments" class="page-tab-panel">
+        <div
+          style="
+            margin-bottom: 16px;
+            padding: 12px 14px;
+            background: rgba(139, 92, 246, 0.08);
+            border: 1px solid rgba(139, 92, 246, 0.25);
+            border-radius: 12px;
+            color: var(--text);
+          "
+        >
+          📝 التقييمات الأسبوعية — امتحانات قصيرة أسبوعية لكل مادة. النظام المعروض:
+          <strong id="assessBranchLabel">عام</strong>
+        </div>
+
+        <div class="content-filter-panel">
+          <div class="filter-select-row">
+            <label for="assessBranchSelect">النظام الدراسي</label>
+            <select id="assessBranchSelect" class="content-select">
+              <option value="عام">عام 🎓</option>
+              <option value="أزهر">أزهر 🕌</option>
+            </select>
+          </div>
+          <div class="filter-caption">اختر المجموعة ثم المادة</div>
+          <div class="filter-bar" id="assessGroupFilterBar"></div>
+          <div class="filter-bar" id="assessSubjectFilterBar"></div>
+        </div>
+
+        <div
+          class="cards-grid-4"
+          id="assessGrid"
+          style="
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+          "
+        ></div>
+      </section>
+
+      <!-- ============ تبويب ابدأ مذاكرة ============ -->
+      <section id="tab-study" class="page-tab-panel">
+        <div class="study-wrap">
+          <div class="study-card">
+            <!-- شاشة تحديد الهدف -->
+            <div id="studyGoalView">
+              <h3>🎯 حدد هدفك اليومي</h3>
+              <p class="study-sub">اختار وقت المذاكرة اللي عايز توصله النهارده</p>
+
+              <div class="study-presets" id="studyPresets"></div>
+
+              <div class="study-adjuster">
+                <button type="button" id="goalMinus" aria-label="أقل">−</button>
+                <div class="study-goal-value">
+                  <div class="num" id="goalValue">2</div>
+                  <div class="unit" id="goalUnit">ساعة</div>
+                </div>
+                <button type="button" id="goalPlus" aria-label="أكثر">+</button>
+              </div>
+
+              <div class="study-unit-toggle">
+                <button type="button" id="unitHours" class="active">ساعات</button>
+                <button type="button" id="unitMinutes">دقائق</button>
+              </div>
+
+              <button type="button" class="study-save-btn" id="saveGoalBtn">💾 حفظ الهدف</button>
+            </div>
+
+            <!-- شاشة التايمر -->
+            <div id="studyTimerView" style="display: none">
+              <h3>⏱️ وقت المذاكرة</h3>
+              <p class="study-sub" id="timerGoalText">هدفك النهارده: ساعتان</p>
+
+              <div class="timer-ring">
+                <svg width="230" height="230" viewBox="0 0 230 230">
+                  <circle cx="115" cy="115" r="100" stroke="rgba(148,163,184,0.2)" stroke-width="14" fill="none" />
+                  <circle id="timerProgress" cx="115" cy="115" r="100" stroke="#3b82f6" stroke-width="14" fill="none"
+                    stroke-linecap="round" stroke-dasharray="628" stroke-dashoffset="628" />
+                </svg>
+                <div class="timer-center">
+                  <div class="timer-display" id="timerDisplay">00:00:00</div>
+                  <div class="timer-goal-label" id="timerPercent">0% من الهدف</div>
+                </div>
+              </div>
+
+              <div class="timer-status" id="timerStatus">جاهز تبدأ؟ يلا بينا 💪</div>
+
+              <div class="timer-actions">
+                <button type="button" class="timer-start" id="startPauseBtn">▶️ ابدأ</button>
+                <button type="button" class="timer-finish" id="finishBtn">🏁 إنهاء وحفظ</button>
+                <button type="button" class="timer-change" id="changeGoalBtn">✏️ تغيير الهدف</button>
+              </div>
+
+              <div class="study-success" id="studySuccess"></div>
+
+              <div class="study-stats">
+                <span>مذاكرة النهارده: <b id="statToday">0 دقيقة</b></span>
+                <span>الهدف: <b id="statGoal">0 دقيقة</b></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
 
     <script src="subjects.js"></script>
+    <script src="script.js"></script>
     <script>
+      /* =====================================================
+         1) توكيمات الصفحة
+      ===================================================== */
+      function activateTab(name) {
+        const valid = ["notes", "assessments", "study"];
+        if (!valid.includes(name)) name = "notes";
+        document.querySelectorAll(".page-tab").forEach((b) => {
+          b.classList.toggle("active", b.dataset.tab === name);
+        });
+        document.querySelectorAll(".page-tab-panel").forEach((p) => {
+          p.classList.toggle("active", p.id === "tab-" + name);
+        });
+        if (name === "assessments") renderAssessments();
+        if (name === "study") refreshStudyStats();
+      }
+
+      document.getElementById("pageTabs")?.addEventListener("click", (event) => {
+        const btn = event.target.closest(".page-tab");
+        if (btn) activateTab(btn.dataset.tab);
+      });
+
+      /* =====================================================
+         2) تبويب المذكرات (المنطق الأصلي)
+      ===================================================== */
       let currentBranch = localStorage.getItem("userBranch") === "أزهر" ? "أزهر" : "عام";
       let currentGroup = "all";
       let currentCategory = "all";
@@ -199,12 +633,10 @@
       }
 
       async function renderNotes() {
-        const localNotes = []; // لا نعرض مذكرات محلية تتجاوز التحقق من الجلسة
-
         try {
           const token = localStorage.getItem("studentAuthToken");
           if (!token) { window.location.href = "login.html"; return; }
-          const res = await fetch(`/api/notes?branch=${encodeURIComponent(currentBranch)}`, {headers:{"x-student-token":token}});
+          const res = await fetch(`/api/notes?branch=${encodeURIComponent(currentBranch)}`, { headers: { "x-student-token": token } });
           if (res.status === 401) { window.location.href = "login.html"; return; }
           if (!res.ok) throw Error("تعذر جلب المذكرات");
           const data = await res.json();
@@ -213,11 +645,7 @@
           console.warn("تعذر جلب المذكرات من السيرفر:", error);
         }
 
-        const serverIds = new Set(serverNotes.map((note) => String(note.id)));
-        const allNotes = [
-          ...serverNotes,
-          ...localNotes.filter((note) => !note.id || !serverIds.has(String(note.id))),
-        ].filter((note) => !note.branch || note.branch === currentBranch || note.branch === "مشترك");
+        const allNotes = serverNotes.filter((note) => !note.branch || note.branch === currentBranch || note.branch === "مشترك");
 
         const filtered = allNotes.filter((note) => {
           const subjectKey = SubjectCatalog.normalizeSubjectKey(note.subjectKey || note.subject_key);
@@ -231,7 +659,7 @@
         if (!grid) return;
         grid.innerHTML = "";
         if (!filtered.length) {
-          grid.innerHTML = `<p class="empty-state-wide">لا توجد مذكرات منشورة في هذا الفلتر حالياً 📄</p>`;
+          grid.innerHTML = `<p class="empty-state-wide">لا توجد مذكرات منشورة في هذا الفلتر حاليًا 📄</p>`;
           return;
         }
 
@@ -260,13 +688,13 @@
         });
       }
 
-      function filterNotes(cat, btn) {
+      function filterNotes(cat) {
         currentCategory = cat;
         setActiveButton(document.getElementById("subjectFilterBar"), cat);
         renderNotes();
       }
 
-      function filterNotesGroup(group, btn) {
+      function filterNotesGroup(group) {
         currentGroup = group;
         currentCategory = "all";
         renderFilterControls();
@@ -285,35 +713,402 @@
       }
 
       function openPdf(url) {
-        if (!url) return alert("رابط المذكرة غير صالح!");
+        if (!url) return showBanner("رابط المذكرة غير صالح!");
         window.open(url, "_blank", "noopener,noreferrer");
       }
-
       function downloadPdf(url) {
-        if (!url) return alert("رابط المذكرة غير صالح!");
-        // Google Drive يتحكم في المشاهدة/التحميل حسب صلاحية الرابط.
+        if (!url) return showBanner("رابط المذكرة غير صالح!");
         window.open(url, "_blank", "noopener,noreferrer");
       }
 
+      /* =====================================================
+         3) تبويب التقييمات الأسبوعية
+      ===================================================== */
+      let assessBranch = localStorage.getItem("userBranch") === "أزهر" ? "أزهر" : "عام";
+      let assessGroup = "all";
+      let assessCategory = "all";
+      let serverAssessments = [];
+      let assessmentsLoaded = false;
+
+      function renderAssessFilters() {
+        const branchSelect = document.getElementById("assessBranchSelect");
+        if (branchSelect) branchSelect.value = assessBranch;
+        const groups = SubjectCatalog.getGroupsForBranch(assessBranch);
+        const groupBar = document.getElementById("assessGroupFilterBar");
+        const subjectBar = document.getElementById("assessSubjectFilterBar");
+        if (!groupBar || !subjectBar) return;
+
+        groupBar.innerHTML = [
+          `<button class="filter-btn ${assessGroup === "all" ? "active" : ""}" data-key="all" data-action="agroup">كل المجموعات ✨</button>`,
+          ...groups.map((group) => `<button class="filter-btn ${assessGroup === group.key ? "active" : ""}" data-key="${group.key}" data-action="agroup">${escapeHtml(group.label)}</button>`),
+        ].join("");
+
+        const selectedGroup = assessGroup === "all" ? null : groups.find((g) => g.key === assessGroup);
+        const subjects = selectedGroup ? selectedGroup.subjects : groups.flatMap((g) => g.subjects);
+        subjectBar.innerHTML = [
+          `<button class="filter-btn ${assessCategory === "all" ? "active" : ""}" data-key="all" data-action="asubject">كل المواد</button>`,
+          ...subjects.map((subject) => `<button class="filter-btn ${assessCategory === subject.key ? "active" : ""}" data-key="${subject.key}" data-action="asubject">${escapeHtml(subject.label)}</button>`),
+        ].join("");
+      }
+
+      async function loadAssessments() {
+        try {
+          const token = localStorage.getItem("studentAuthToken");
+          if (!token) { window.location.href = "login.html"; return; }
+          const res = await fetch("/api/assessments", { headers: { "x-student-token": token } });
+          if (res.status === 401) { window.location.href = "login.html"; return; }
+          if (!res.ok) throw Error("تعذر جلب التقييمات");
+          const data = await res.json();
+          if (data.success) serverAssessments = data.assessments || [];
+          assessmentsLoaded = true;
+        } catch (error) {
+          console.warn("تعذر جلب التقييمات:", error);
+        }
+      }
+
+      async function renderAssessments() {
+        if (!assessmentsLoaded) await loadAssessments();
+        renderAssessFilters();
+
+        const grid = document.getElementById("assessGrid");
+        if (!grid) return;
+
+        const filtered = serverAssessments.filter((item) => {
+          const subjectKey = SubjectCatalog.normalizeSubjectKey(item.subjectKey || item.subject_key);
+          const subjectGroup = item.subjectGroup || SubjectCatalog.getSubjectGroup(subjectKey, assessBranch);
+          const groupMatch = assessGroup === "all" || subjectGroup === assessGroup;
+          const subjectMatch = assessCategory === "all" || subjectKey === assessCategory;
+          return groupMatch && subjectMatch;
+        });
+
+        grid.innerHTML = "";
+        if (!filtered.length) {
+          grid.innerHTML = `<p class="empty-state-wide">لا توجد تقييمات أسبوعية منشورة في هذا الفلتر حاليًا 📝</p>`;
+          return;
+        }
+
+        filtered.forEach((item) => {
+          const fileUrl = item.fileUrl || item.file_url || "";
+          const subjectName = item.subjectName || item.subject_name || SubjectCatalog.getSubjectLabel(item.subjectKey, assessBranch, "مادة");
+          const card = document.createElement("div");
+          card.className = "assess-card reveal-card";
+          card.innerHTML = `
+            <div>
+              <div class="assess-icon-box">📝</div>
+              <div class="pdf-info">
+                <h3>${escapeHtml(item.title || "تقييم أسبوعي")}</h3>
+                <p>المادة: ${escapeHtml(subjectName)}${item.week ? " | " + escapeHtml(item.week) : ""}</p>
+                <p class="note-owner">إعداد: ${escapeHtml(item.ownerName || "دكتور مستبقي")}</p>
+              </div>
+            </div>
+            <div class="pdf-actions">
+              <button class="btn-action btn-read" data-url="${escapeHtml(fileUrl)}">فتح التقييم 👁️</button>
+              <button class="btn-action btn-download" data-url="${escapeHtml(fileUrl)}">عرض / تحميل من Drive 📥</button>
+            </div>`;
+          card.querySelector(".btn-read").addEventListener("click", () => openPdf(fileUrl));
+          card.querySelector(".btn-download").addEventListener("click", () => downloadPdf(fileUrl));
+          grid.appendChild(card);
+        });
+      }
+
+      function changeAssessBranch(branch) {
+        assessBranch = branch === "أزهر" ? "أزهر" : "عام";
+        const label = document.getElementById("assessBranchLabel");
+        if (label) label.textContent = assessBranch;
+        assessGroup = "all";
+        assessCategory = "all";
+        renderAssessFilters();
+        renderAssessments();
+      }
+
+      /* =====================================================
+         4) تبويب ابدأ مذاكرة (التايمر)
+      ===================================================== */
+      const STUDY_KEYS = {
+        goal: "studyGoalMinutes",
+        elapsed: "studyElapsedSeconds",
+        running: "studyTimerRunning",
+        start: "studyTimerStart",
+      };
+      let studyUnit = "hours"; // hours | minutes
+      let studyGoalMinutes = Number(localStorage.getItem(STUDY_KEYS.goal)) || 0;
+      let studyElapsedSeconds = Number(localStorage.getItem(STUDY_KEYS.elapsed)) || 0;
+      let studyTimerRunning = localStorage.getItem(STUDY_KEYS.running) === "1";
+      let studyTimerStart = Number(localStorage.getItem(STUDY_KEYS.start)) || 0;
+      let studyTickHandle = null;
+
+      function saveStudyState() {
+        localStorage.setItem(STUDY_KEYS.goal, String(studyGoalMinutes));
+        localStorage.setItem(STUDY_KEYS.elapsed, String(studyElapsedSeconds));
+        localStorage.setItem(STUDY_KEYS.running, studyTimerRunning ? "1" : "0");
+        localStorage.setItem(STUDY_KEYS.start, String(studyTimerStart));
+      }
+
+      function studyCurrentElapsed() {
+        if (studyTimerRunning && studyTimerStart) {
+          return studyElapsedSeconds + Math.floor((Date.now() - studyTimerStart) / 1000);
+        }
+        return studyElapsedSeconds;
+      }
+
+      function formatStudyTime(totalSeconds) {
+        const s = Math.max(0, Math.floor(totalSeconds));
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const sec = s % 60;
+        const pad = (n) => String(n).padStart(2, "0");
+        return `${pad(h)}:${pad(m)}:${pad(sec)}`;
+      }
+
+      function minutesLabel(mins) {
+        const m = Math.max(0, Math.round(mins));
+        const h = Math.floor(m / 60);
+        const r = m % 60;
+        if (h && r) return `${h} س ${r} د`;
+        if (h) return `${h} ساعة`;
+        return `${r} دقيقة`;
+      }
+
+      function renderStudyPresets() {
+        const box = document.getElementById("studyPresets");
+        if (!box) return;
+        const presets = studyUnit === "hours" ? [1, 2, 3, 4] : [15, 30, 45, 60];
+        box.innerHTML = presets
+          .map((val) => {
+            const mins = studyUnit === "hours" ? val * 60 : val;
+            const active = studyGoalMinutes === mins ? "active" : "";
+            const label = studyUnit === "hours" ? `${val} ${val === 1 ? "ساعة" : "ساعات"}` : `${val} دقيقة`;
+            return `<button type="button" class="study-preset ${active}" data-mins="${mins}">${label}</button>`;
+          })
+          .join("");
+      }
+
+      function updateGoalInputLimits() {
+        const unitEl = document.getElementById("goalUnit");
+        const valueEl = document.getElementById("goalValue");
+        if (unitEl) unitEl.textContent = studyUnit === "hours" ? "ساعة" : "دقيقة";
+        if (valueEl) {
+          const shown = studyUnit === "hours"
+            ? Math.max(1, Math.round(studyGoalMinutes / 60) || 1)
+            : Math.max(5, studyGoalMinutes || 30);
+          valueEl.textContent = shown;
+        }
+      }
+
+      function setStudyUnit(unit) {
+        studyUnit = unit === "minutes" ? "minutes" : "hours";
+        document.getElementById("unitHours")?.classList.toggle("active", studyUnit === "hours");
+        document.getElementById("unitMinutes")?.classList.toggle("active", studyUnit === "minutes");
+        if (!studyGoalMinutes) studyGoalMinutes = studyUnit === "hours" ? 120 : 30;
+        renderStudyPresets();
+        updateGoalInputLimits();
+      }
+
+      function adjustGoal(direction) {
+        if (studyUnit === "hours") {
+          const hours = Math.max(1, Math.round((studyGoalMinutes || 60) / 60) + direction);
+          studyGoalMinutes = Math.min(12, hours) * 60;
+        } else {
+          const mins = Math.max(5, (studyGoalMinutes || 30) + direction * 5);
+          studyGoalMinutes = Math.min(720, mins);
+        }
+        renderStudyPresets();
+        updateGoalInputLimits();
+      }
+
+      function showStudyGoal() {
+        document.getElementById("studyGoalView").style.display = "block";
+        document.getElementById("studyTimerView").style.display = "none";
+        setStudyUnit(studyGoalMinutes && studyGoalMinutes % 60 !== 0 ? "minutes" : studyUnit);
+        renderStudyPresets();
+        updateGoalInputLimits();
+      }
+
+      function showStudyTimer() {
+        document.getElementById("studyGoalView").style.display = "none";
+        document.getElementById("studyTimerView").style.display = "block";
+        const goalText = document.getElementById("timerGoalText");
+        if (goalText) goalText.textContent = "هدفك النهارده: " + minutesLabel(studyGoalMinutes);
+        const statGoal = document.getElementById("statGoal");
+        if (statGoal) statGoal.textContent = minutesLabel(studyGoalMinutes);
+        updateTimerUI();
+      }
+
+      function updateTimerUI() {
+        const elapsed = studyCurrentElapsed();
+        const display = document.getElementById("timerDisplay");
+        if (display) display.textContent = formatStudyTime(elapsed);
+        const pct = studyGoalMinutes > 0 ? Math.min(100, Math.round((elapsed / 60 / studyGoalMinutes) * 100)) : 0;
+        const pctEl = document.getElementById("timerPercent");
+        if (pctEl) pctEl.textContent = `${pct}% من الهدف`;
+        const ring = document.getElementById("timerProgress");
+        if (ring) {
+          const circumference = 2 * Math.PI * 100;
+          const offset = circumference - (pct / 100) * circumference;
+          ring.style.strokeDashoffset = String(offset);
+          ring.style.stroke = pct >= 100 ? "#22c55e" : "#3b82f6";
+        }
+        const btn = document.getElementById("startPauseBtn");
+        if (btn) btn.textContent = studyTimerRunning ? "⏸️ إيقاف مؤقت" : (elapsed > 0 ? "▶️ استكمال" : "▶️ ابدأ");
+        const status = document.getElementById("timerStatus");
+        if (status) {
+          if (studyTimerRunning) status.textContent = "شغّال دلوقتي… ركّز وذاكر 📚";
+          else if (elapsed > 0) status.textContent = "متوقف مؤقتًا — كمّل لما تجهز ⏸️";
+          else status.textContent = "جاهز تبدأ؟ يلا بينا 💪";
+        }
+      }
+
+      function startStudyTick() {
+        if (studyTickHandle) clearInterval(studyTickHandle);
+        studyTickHandle = setInterval(updateTimerUI, 1000);
+      }
+
+      function startPauseStudy() {
+        if (studyTimerRunning) {
+          // إيقاف مؤقت
+          studyElapsedSeconds = studyCurrentElapsed();
+          studyTimerRunning = false;
+          studyTimerStart = 0;
+        } else {
+          // بدء/استكمال
+          studyTimerRunning = true;
+          studyTimerStart = Date.now();
+        }
+        saveStudyState();
+        updateTimerUI();
+      }
+
+      async function finishStudy() {
+        const elapsed = studyCurrentElapsed();
+        const minutes = Math.floor(elapsed / 60);
+        if (minutes < 1) {
+          showBanner("لسه مذاكرتش دقيقة كاملة، كمّل شوية كمان 💪");
+          return;
+        }
+        const token = localStorage.getItem("studentAuthToken");
+        if (!token) { window.location.href = "login.html"; return; }
+        try {
+          const res = await fetch("/api/study/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-student-token": token },
+            body: JSON.stringify({ minutes, goalMinutes: studyGoalMinutes }),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) throw Error(data.message || "تعذر حفظ جلسة المذاكرة");
+          // إعادة التهيئة
+          studyElapsedSeconds = 0;
+          studyTimerRunning = false;
+          studyTimerStart = 0;
+          saveStudyState();
+          updateTimerUI();
+          const success = document.getElementById("studySuccess");
+          if (success) {
+            success.style.display = "block";
+            success.textContent = `🎉 عاش يا دكتور! سجّلنا ${minutesLabel(minutes)} مذاكرة. كمّل كده وابقى الأول في لوحة الصدارة!`;
+          }
+          refreshStudyStats();
+        } catch (error) {
+          showBanner(error.message || "تعذر الاتصال بالسيرفر، حاول تاني");
+        }
+      }
+
+      async function refreshStudyStats() {
+        const token = localStorage.getItem("studentAuthToken");
+        if (!token) return;
+        try {
+          const res = await fetch("/api/study/stats", { headers: { "x-student-token": token } });
+          const data = await res.json();
+          if (data.success) {
+            const statToday = document.getElementById("statToday");
+            if (statToday) statToday.textContent = minutesLabel(data.todayMinutes || 0);
+          }
+        } catch (e) {
+          /* تجاهل */
+        }
+      }
+
+      function changeStudyGoal() {
+        // إيقاف التايمر مؤقتًا عند تغيير الهدف
+        if (studyTimerRunning) {
+          studyElapsedSeconds = studyCurrentElapsed();
+          studyTimerRunning = false;
+          studyTimerStart = 0;
+          saveStudyState();
+        }
+        showStudyGoal();
+      }
+
+      /* =====================================================
+         5) ربط الأحداث عند التحميل
+      ===================================================== */
       window.addEventListener("DOMContentLoaded", () => {
+        // تبويب المذكرات
         const label = document.getElementById("notesBranchLabel");
         if (label) label.textContent = currentBranch;
         const branchSelect = document.getElementById("notesBranchSelect");
         branchSelect?.addEventListener("change", (event) => changeNotesBranch(event.target.value));
-
-        // تفويض الأحداث (event delegation) لأزرار المجموعات/المواد
-        // اللي بتتولد ديناميكيًا - أضمن من onclick المكتوب جوه innerHTML
         document.getElementById("groupFilterBar")?.addEventListener("click", (event) => {
           const btn = event.target.closest("button[data-action='group']");
-          if (btn) filterNotesGroup(btn.dataset.key, btn);
+          if (btn) filterNotesGroup(btn.dataset.key);
         });
         document.getElementById("subjectFilterBar")?.addEventListener("click", (event) => {
           const btn = event.target.closest("button[data-action='subject']");
-          if (btn) filterNotes(btn.dataset.key, btn);
+          if (btn) filterNotes(btn.dataset.key);
         });
-
         renderFilterControls();
         renderNotes();
+
+        // تبويب التقييمات
+        const aLabel = document.getElementById("assessBranchLabel");
+        if (aLabel) aLabel.textContent = assessBranch;
+        const aBranch = document.getElementById("assessBranchSelect");
+        aBranch?.addEventListener("change", (event) => changeAssessBranch(event.target.value));
+        document.getElementById("assessGroupFilterBar")?.addEventListener("click", (event) => {
+          const btn = event.target.closest("button[data-action='agroup']");
+          if (btn) { assessGroup = btn.dataset.key; assessCategory = "all"; renderAssessFilters(); renderAssessments(); }
+        });
+        document.getElementById("assessSubjectFilterBar")?.addEventListener("click", (event) => {
+          const btn = event.target.closest("button[data-action='asubject']");
+          if (btn) { assessCategory = btn.dataset.key; setActiveButton(document.getElementById("assessSubjectFilterBar"), assessCategory); renderAssessments(); }
+        });
+        renderAssessFilters();
+
+        // تبويب المذاكرة
+        document.getElementById("studyPresets")?.addEventListener("click", (event) => {
+          const btn = event.target.closest(".study-preset");
+          if (!btn) return;
+          studyGoalMinutes = Number(btn.dataset.mins);
+          renderStudyPresets();
+          updateGoalInputLimits();
+        });
+        document.getElementById("goalMinus")?.addEventListener("click", () => adjustGoal(-1));
+        document.getElementById("goalPlus")?.addEventListener("click", () => adjustGoal(1));
+        document.getElementById("unitHours")?.addEventListener("click", () => setStudyUnit("hours"));
+        document.getElementById("unitMinutes")?.addEventListener("click", () => setStudyUnit("minutes"));
+        document.getElementById("saveGoalBtn")?.addEventListener("click", () => {
+          if (!studyGoalMinutes || studyGoalMinutes < 1) studyGoalMinutes = 60;
+          saveStudyState();
+          showStudyTimer();
+        });
+        document.getElementById("startPauseBtn")?.addEventListener("click", startPauseStudy);
+        document.getElementById("finishBtn")?.addEventListener("click", finishStudy);
+        document.getElementById("changeGoalBtn")?.addEventListener("click", changeStudyGoal);
+
+        startStudyTick();
+
+        // فتح التبويب من الرابط ?tab=study أو ?tab=assessments
+        const params = new URLSearchParams(window.location.search);
+        const wanted = params.get("tab");
+        if (wanted === "study") {
+          if (studyGoalMinutes > 0) showStudyTimer();
+          else showStudyGoal();
+          activateTab("study");
+        } else if (wanted === "assessments") {
+          activateTab("assessments");
+        } else {
+          if (studyGoalMinutes > 0 && studyTimerRunning) showStudyTimer();
+          else showStudyGoal();
+        }
       });
     </script>
   </body>

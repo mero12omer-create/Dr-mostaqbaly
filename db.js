@@ -55,6 +55,7 @@ const CAMEL_COLUMNS = {
   subjectgroup: "subjectGroup",
   subjectkey: "subjectKey",
   subjectname: "subjectName",
+  todayminutes: "todayMinutes",
 };
 function fixRow(row) {
   if (!row || typeof row !== "object") return row;

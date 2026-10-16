@@ -18,6 +18,35 @@
       window.addEventListener("unhandledrejection", function (event) {
         showBanner("⚠️ خطأ Promise: " + (event.reason && event.reason.message ? event.reason.message : event.reason));
       });
+      function showExamModal(options) {
+        options = options || {};
+        var overlay = document.getElementById("examModalOverlay");
+        if (!overlay) { alert(options.message || ""); return; }
+        var type = options.type || "info";
+        var icons = { success: "✅", error: "❌", warning: "⚠️", info: "ℹ️" };
+        overlay.className = "exam-modal-overlay active " + type;
+        document.getElementById("examModalIcon").textContent = options.icon || icons[type] || icons.info;
+        document.getElementById("examModalTitle").textContent = options.title || "";
+        document.getElementById("examModalMsg").textContent = options.message || "";
+        var btn = document.getElementById("examModalBtn");
+        btn.textContent = options.buttonText || "تمام";
+        var closed = false;
+        function close() {
+          if (closed) return;
+          closed = true;
+          overlay.classList.remove("active");
+          overlay.removeEventListener("click", onOverlayClick);
+          document.removeEventListener("keydown", onKey);
+          btn.removeEventListener("click", close);
+          if (typeof options.onClose === "function") options.onClose();
+        }
+        function onOverlayClick(e) { if (e.target === overlay) close(); }
+        function onKey(e) { if (e.key === "Escape") close(); }
+        overlay.addEventListener("click", onOverlayClick);
+        document.addEventListener("keydown", onKey);
+        btn.addEventListener("click", close);
+        btn.focus();
+      }
     </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -144,9 +173,69 @@
         width: 0%;
         transition: width 0.3s ease;
       }
+      /* مودال رسائل الامتحان داخل المنصة */
+      .exam-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 100000;
+        padding: 20px;
+        direction: rtl;
+      }
+      .exam-modal-overlay.active { display: flex; }
+      .exam-modal-box {
+        background: var(--card-bg, #fff);
+        color: var(--text, #0f172a);
+        border-radius: 20px;
+        padding: 28px 24px;
+        max-width: 420px;
+        width: 100%;
+        text-align: center;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, .35);
+        border: 1px solid var(--border, #e2e8f0);
+        animation: examModalPop .3s cubic-bezier(.22, 1, .36, 1);
+      }
+      @keyframes examModalPop {
+        from { transform: scale(.85); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+      }
+      .exam-modal-icon { font-size: 52px; line-height: 1; margin-bottom: 10px; }
+      .exam-modal-title { font-size: 20px; font-weight: 800; margin: 0 0 8px; }
+      .exam-modal-msg { font-size: 15px; line-height: 1.7; color: var(--muted, #475569); margin: 0 0 20px; }
+      .exam-modal-btn {
+        border: none;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 16px;
+        font-weight: 700;
+        padding: 12px 28px;
+        border-radius: 12px;
+        background: #2563eb;
+        color: #fff;
+        transition: transform .15s ease, filter .15s ease;
+      }
+      .exam-modal-btn:hover { transform: translateY(-2px); filter: brightness(1.05); }
+      .exam-modal-overlay.success .exam-modal-btn { background: #16a34a; }
+      .exam-modal-overlay.error .exam-modal-btn { background: #dc2626; }
+      .exam-modal-overlay.warning .exam-modal-btn { background: #d97706; }
+      .exam-modal-overlay.success .exam-modal-icon { color: #16a34a; }
+      .exam-modal-overlay.error .exam-modal-icon { color: #dc2626; }
+      .exam-modal-overlay.warning .exam-modal-icon { color: #d97706; }
     </style>
   </head>
   <body>
+    <div class="exam-modal-overlay" id="examModalOverlay">
+      <div class="exam-modal-box" role="dialog" aria-modal="true">
+        <div class="exam-modal-icon" id="examModalIcon">ℹ️</div>
+        <h3 class="exam-modal-title" id="examModalTitle"></h3>
+        <p class="exam-modal-msg" id="examModalMsg"></p>
+        <button class="exam-modal-btn" id="examModalBtn" type="button">تمام</button>
+      </div>
+    </div>
     <div id="statusBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; background:#dc2626; color:#fff; padding:14px; font-size:15px; text-align:center; direction:rtl; word-break:break-word;"></div>
     <header class="fixed-header">
       <div class="navbar">
@@ -493,7 +582,7 @@
 
       function startQuiz(lesson) {
         if (!lesson.questions || lesson.questions.length === 0) {
-          return alert("لا توجد أسئلة مضافة لهذا الدرس بعد!");
+          return showExamModal({ type: "warning", title: "مفيش أسئلة", message: "لا توجد أسئلة مضافة لهذا الدرس بعد!" });
         }
 
         // منع الطالب من دخول نفس الامتحان مرتين
@@ -503,9 +592,11 @@
         const completed = JSON.parse(localStorage.getItem(completedKey)) || [];
 
         if (completed.includes(lessonId)) {
-          alert(
-            "⚠️ لقد أدّيت هذا الامتحان من قبل يا بطل! انتبه للدرس وخذ فرصة جديدة في امتحان آخر. 💪",
-          );
+          showExamModal({
+            type: "warning",
+            title: "⚠️ أدّيت الامتحان قبل كده",
+            message: "لقد أدّيت هذا الامتحان من قبل يا بطل! راجع الدرس وخُذ فرصة جديدة في امتحان آخر. 💪",
+          });
           return;
         }
 
@@ -622,14 +713,22 @@
 
       async function submitExamResults(lessonTitle) {
         if (!activeExamId) {
-          alert("تم إنهاء الامتحان، لكن هذا المحتوى قديم وغير مرتبط بسجل خادم؛ لم تتم إضافة نقاط محلية.");
-          location.reload();
+          showExamModal({
+            type: "warning",
+            title: "محتوى قديم",
+            message: "تم إنهاء الامتحان، لكن هذا المحتوى قديم وغير مرتبط بسجل الخادم؛ لم تتم إضافة نقاط.",
+            onClose: () => location.reload(),
+          });
           return;
         }
         const token = localStorage.getItem("studentAuthToken");
         if (!token) {
-          alert("سجل الدخول من جديد حتى يتم تصحيح الامتحان وإضافة النقاط بأمان.");
-          location.reload();
+          showExamModal({
+            type: "warning",
+            title: "سجّل الدخول من جديد",
+            message: "سجّل الدخول من جديد حتى يتم تصحيح الامتحان وإضافة النقاط بأمان.",
+            onClose: () => location.reload(),
+          });
           return;
         }
         try {
@@ -643,7 +742,11 @@
           });
           const data = await res.json();
           if (!res.ok || !data.success) {
-            alert(data.message || "تعذر حفظ نتيجة الامتحان");
+            showExamModal({
+              type: "error",
+              title: "تعذّر الحفظ",
+              message: data.message || "تعذر حفظ نتيجة الامتحان",
+            });
             return;
           }
           const sessionToken = localStorage.getItem("studentAuthToken") || "guest";
@@ -654,11 +757,20 @@
             localStorage.setItem(completedKey, JSON.stringify(completed));
           }
           localStorage.setItem("userPoints", String(data.newPoints));
-          alert(`عاش يا دكتور! كملت ${lessonTitle} وحصلت على ${data.score} من ${data.totalPoints} نقطة. إجابات صحيحة: ${data.correctCount} 🎉`);
-          location.reload();
+          showExamModal({
+            type: "success",
+            title: "عاش يا دكتور! 🎉",
+            message: `كمّلت ${lessonTitle} وحصلت على ${data.score} من ${data.totalPoints} نقطة. إجابات صحيحة: ${data.correctCount} ✅`,
+            buttonText: "تمام، رجّعني",
+            onClose: () => location.reload(),
+          });
         } catch (error) {
           console.warn("تعذر إرسال نتيجة الامتحان:", error);
-          alert("تعذر الاتصال بالخادم، ولم تتم إضافة النقاط. حاول مرة أخرى.");
+          showExamModal({
+            type: "error",
+            title: "تعذّر الاتصال",
+            message: "تعذر الاتصال بالخادم، ولم تتم إضافة النقاط. حاول مرة أخرى.",
+          });
         }
       }
 

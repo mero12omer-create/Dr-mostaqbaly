@@ -490,6 +490,28 @@ async function initializeDatabase() {
       expires_at TIMESTAMP NOT NULL,
       created_at TIMESTAMP DEFAULT NOW()
     )`,
+    `CREATE TABLE IF NOT EXISTS study_sessions (
+      id SERIAL PRIMARY KEY,
+      phone TEXT NOT NULL,
+      name TEXT,
+      minutes INTEGER NOT NULL DEFAULT 0,
+      goal_minutes INTEGER DEFAULT 0,
+      branch TEXT DEFAULT 'عام',
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
+    `CREATE TABLE IF NOT EXISTS assessments (
+      id SERIAL PRIMARY KEY,
+      title TEXT,
+      subjectKey TEXT,
+      subjectName TEXT,
+      subjectGroup TEXT DEFAULT 'general',
+      ownerName TEXT,
+      week TEXT,
+      size TEXT,
+      fileUrl TEXT,
+      branch TEXT DEFAULT 'عام',
+      created_at TIMESTAMP DEFAULT NOW()
+    )`,
   ];
 
   for (const statement of statements) await db.runAsync(statement, []);
@@ -990,6 +1012,74 @@ app.get("/api/leaderboard", (req, res) => {
     }
     res.status(200).json({ success: true, leaderboard: rows });
   });
+});
+
+// ========================================
+// ترتيب أوقات المذاكرة (منفصل تمامًا عن النقاط) — يومي / أسبوعي / شهري
+// ========================================
+app.get("/api/study/leaderboard", (req, res) => {
+  const range = String(req.query.range || "daily").toLowerCase();
+  const now = new Date();
+  const since = new Date(now);
+  if (range === "weekly") since.setDate(since.getDate() - 7);
+  else if (range === "monthly") since.setDate(since.getDate() - 30);
+  else since.setHours(0, 0, 0, 0); // يومي = من بداية اليوم
+
+  db.all(
+    `SELECT phone, MAX(name) AS name, SUM(minutes) AS minutes
+       FROM study_sessions
+      WHERE created_at >= ?
+      GROUP BY phone
+      ORDER BY minutes DESC
+      LIMIT 10`,
+    [since],
+    (err, rows) => {
+      if (err) {
+        return res.status(500).json({ success: false, message: "خطأ في تحميل ترتيب أوقات المذاكرة" });
+      }
+      res.status(200).json({ success: true, range, leaderboard: rows || [] });
+    },
+  );
+});
+
+// حفظ جلسة مذاكرة منتهية (لا تُحوّل إلى نقاط — ترتيب مستقل)
+app.post("/api/study/session", requireStudentAuth, pointsLimiter, (req, res) => {
+  const minutes = Math.round(Number(req.body.minutes));
+  const goalMinutes = Math.round(Number(req.body.goalMinutes)) || 0;
+  if (!Number.isFinite(minutes) || minutes <= 0 || minutes > 24 * 60) {
+    return res.status(400).json({ success: false, message: "مدة المذاكرة غير صالحة" });
+  }
+  db.get(`SELECT name, branch, disabled FROM users WHERE phone = ?`, [req.studentPhone], (userErr, user) => {
+    if (userErr || !user || user.disabled) {
+      return res.status(401).json({ success: false, message: "حساب الطالب غير صالح" });
+    }
+    db.run(
+      `INSERT INTO study_sessions (phone, name, minutes, goal_minutes, branch) VALUES (?, ?, ?, ?, ?)`,
+      [req.studentPhone, user.name || "طالب", minutes, goalMinutes, user.branch || "عام"],
+      function (err) {
+        if (err) {
+          return res.status(500).json({ success: false, message: "تعذر حفظ جلسة المذاكرة" });
+        }
+        res.status(200).json({ success: true, id: this.lastID, minutes, message: "تم تسجيل وقت المذاكرة ✅" });
+      },
+    );
+  });
+});
+
+// إحصائيات مذاكرة الطالب الحالي (مجموع دقايق النهارده)
+app.get("/api/study/stats", requireStudentAuth, (req, res) => {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  db.get(
+    `SELECT COALESCE(SUM(minutes), 0) AS "todayMinutes" FROM study_sessions WHERE phone = ? AND created_at >= ?`,
+    [req.studentPhone, start],
+    (err, row) => {
+      if (err) {
+        return res.status(500).json({ success: false, message: "خطأ في تحميل إحصائيات المذاكرة" });
+      }
+      res.status(200).json({ success: true, todayMinutes: Number(row?.todayMinutes || 0) });
+    },
+  );
 });
 
 // 4. جلب بيانات الملف الشخصي
@@ -1949,6 +2039,57 @@ app.get("/api/admin/exams/drafts", requireAdmin, (req, res) => {
   );
 });
 
+// عرض كل الامتحانات المنشورة (للأدمن) — عشان يقدر يحذف أي امتحان ضافه بالغلط
+app.get("/api/admin/exams", requireAdmin, (req, res) => {
+  db.all(
+    `SELECT id, subjectKey, subjectName, subjectGroup, lessonTitle, branch, content, created_at
+       FROM exams ORDER BY created_at DESC`,
+    [],
+    (err, rows) => {
+      if (err) {
+        return res.status(500).json({ success: false, message: "خطأ في جلب الامتحانات" });
+      }
+      const exams = (rows || []).map((r) => {
+        let count = 0;
+        try {
+          count = JSON.parse(r.content || "[]").length;
+        } catch {
+          count = 0;
+        }
+        return {
+          id: r.id,
+          subjectKey: normalizeSubjectKey(r.subjectKey),
+          subjectName: getSubjectLabel(r.subjectKey, r.branch, r.subjectName),
+          subjectGroup: r.subjectGroup || getSubjectGroup(r.subjectKey, r.branch),
+          lessonTitle: r.lessonTitle,
+          branch: r.branch,
+          questionCount: count,
+          created_at: r.created_at,
+        };
+      });
+      res.status(200).json({ success: true, exams });
+    },
+  );
+});
+
+// حذف امتحان (للأدمن فقط) — يمسح كمان محاولات الطلاب المرتبطة به
+app.post("/api/admin/exams/delete", requireAdmin, (req, res) => {
+  const id = Number(req.body && req.body.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ success: false, message: "معرّف الامتحان غير صالح" });
+  }
+  db.run(`DELETE FROM exams WHERE id = ?`, [id], function (err) {
+    if (err) {
+      return res.status(500).json({ success: false, message: "تعذر حذف الامتحان" });
+    }
+    if (!this.changes) {
+      return res.status(404).json({ success: false, message: "الامتحان غير موجود" });
+    }
+    db.run(`DELETE FROM exam_attempts WHERE exam_id = ?`, [id]);
+    res.status(200).json({ success: true, message: "تم حذف الامتحان" });
+  });
+});
+
 // ========================================
 // إدارة الطلاب من لوحة الأدمن (بحث برقم الهاتف، تعطيل، حذف، إعادة تعيين كلمة السر)
 // ========================================
@@ -2102,6 +2243,34 @@ app.post("/api/admin/users/reset-password", requireAdmin, async (req, res) => {
   );
 });
 
+// تعديل نقاط الطالب يدويًا (زيادة أو نقصان) من لوحة الأدمن
+app.post("/api/admin/users/adjust-points", requireAdmin, (req, res) => {
+  const phone = normalizeText(req.body.phone);
+  if (!phone) {
+    return res.status(400).json({ success: false, message: "رقم الهاتف مطلوب" });
+  }
+  const hasSet = Number.isFinite(Number(req.body.points));
+  const hasDelta = Number.isFinite(Number(req.body.delta)) && Number(req.body.delta) !== 0;
+  if (!hasSet && !hasDelta) {
+    return res.status(400).json({ success: false, message: "حدد قيمة النقاط المطلوبة" });
+  }
+  db.get(`SELECT points FROM users WHERE phone = ?`, [phone], (err, user) => {
+    if (err || !user) {
+      return res.status(404).json({ success: false, message: "لا يوجد طالب بهذا الرقم" });
+    }
+    let newPoints = hasSet
+      ? Math.round(Number(req.body.points))
+      : Number(user.points || 0) + Math.round(Number(req.body.delta));
+    newPoints = Math.max(0, Math.min(1000000, newPoints)); // النقاط مش بتقل عن صفر
+    db.run(`UPDATE users SET points = ? WHERE phone = ?`, [newPoints, phone], (updateErr) => {
+      if (updateErr) {
+        return res.status(500).json({ success: false, message: "تعذر تحديث نقاط الطالب" });
+      }
+      res.status(200).json({ success: true, points: newPoints, message: `تم تحديث النقاط إلى ${newPoints}` });
+    });
+  });
+});
+
 app.get("/api/admin/notes", requireAdmin, (req, res) => {
   db.all(`SELECT * FROM notes ORDER BY created_at DESC`, [], (err, rows) => {
     if (err) {
@@ -2170,6 +2339,104 @@ app.get("/api/notes", requireStudentAuth, (req, res) => {
         }),
       );
       res.status(200).json({ success: true, notes });
+    },
+  );
+});
+
+// ========================================
+// التقييمات الأسبوعية (روابط Google Drive) — قسم منفصل زي المذكرات
+// ========================================
+app.post("/api/admin/assessments/drive", requireAdmin, (req, res) => {
+  const { title, week, fileUrl, ownerName } = req.body;
+  if (!normalizeText(title) || !validDriveLink(fileUrl)) {
+    return res.status(400).json({ success: false, message: "أدخل عنوان التقييم ورابط Google Drive صحيح" });
+  }
+  const branch = normalizeBranch(req.body.branch);
+  const subjectKey = normalizeSubjectKey(req.body.subjectKey);
+  const subjectName = getSubjectLabel(subjectKey, branch, req.body.subjectName);
+  const subjectGroup = getSubjectGroup(subjectKey, branch);
+  db.run(
+    `INSERT INTO assessments (title, subjectKey, subjectName, subjectGroup, ownerName, week, size, fileUrl, branch) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      normalizeText(title),
+      subjectKey,
+      subjectName,
+      subjectGroup,
+      normalizeText(ownerName || "دكتور مستبقي"),
+      normalizeText(week),
+      normalizeText(req.body.size),
+      fileUrl,
+      branch,
+    ],
+    function (err) {
+      if (err) return res.status(500).json({ success: false, message: "تعذر حفظ التقييم" });
+      res.json({ success: true, id: this.lastID });
+    },
+  );
+});
+
+app.get("/api/admin/assessments", requireAdmin, (req, res) => {
+  db.all(`SELECT * FROM assessments ORDER BY created_at DESC`, [], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ success: false, message: "خطأ في جلب التقييمات" });
+    }
+    const assessments = (rows || []).map((row) => ({
+      ...row,
+      subjectKey: normalizeSubjectKey(row.subjectKey),
+      subjectName: getSubjectLabel(row.subjectKey, row.branch, row.subjectName),
+      subjectGroup: row.subjectGroup || getSubjectGroup(row.subjectKey, row.branch),
+    }));
+    res.status(200).json({ success: true, assessments });
+  });
+});
+
+app.post("/api/admin/assessments/delete", requireAdmin, (req, res) => {
+  const id = Number(req.body && req.body.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ success: false, message: "معرّف التقييم غير صالح" });
+  }
+  db.run(`DELETE FROM assessments WHERE id = ?`, [id], function (err) {
+    if (err) {
+      return res.status(500).json({ success: false, message: "تعذر حذف التقييم" });
+    }
+    if (!this.changes) {
+      return res.status(404).json({ success: false, message: "التقييم غير موجود" });
+    }
+    res.status(200).json({ success: true, message: "تم حذف التقييم" });
+  });
+});
+
+app.get("/api/assessments", requireStudentAuth, (req, res) => {
+  const userBranch = req.userBranch || getUserBranchFromRequest(req);
+  db.all(
+    `SELECT * FROM assessments WHERE (branch = ? OR branch = 'مشترك') ORDER BY created_at DESC`,
+    [userBranch],
+    async (err, rows) => {
+      if (err) {
+        return res.status(500).json({ success: false, message: "خطأ في جلب التقييمات" });
+      }
+      const assessments = await Promise.all(
+        (rows || []).map(async (row) => {
+          let signedFileUrl = null;
+          try {
+            if (row.fileUrl && !row.fileUrl.startsWith("/uploads/") && !row.fileUrl.startsWith("http")) {
+              signedFileUrl = await getSignedFileUrl(row.fileUrl);
+            } else {
+              signedFileUrl = row.fileUrl;
+            }
+          } catch (e) {
+            signedFileUrl = null;
+          }
+          return {
+            ...row,
+            fileUrl: signedFileUrl,
+            subjectKey: normalizeSubjectKey(row.subjectKey),
+            subjectName: getSubjectLabel(row.subjectKey, row.branch, row.subjectName),
+            subjectGroup: row.subjectGroup || getSubjectGroup(row.subjectKey, row.branch),
+          };
+        }),
+      );
+      res.status(200).json({ success: true, assessments });
     },
   );
 });
