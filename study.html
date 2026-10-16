@@ -2,14 +2,18 @@
 <html lang="ar" dir="rtl">
   <head>
     <script>
-      function showBanner(text) {
+      var bannerTimer = null;
+      function showBanner(text, tone) {
         var el = document.getElementById("statusBanner");
         if (!el) {
-          document.addEventListener("DOMContentLoaded", function () { showBanner(text); });
+          document.addEventListener("DOMContentLoaded", function () { showBanner(text, tone); });
           return;
         }
         el.style.display = "block";
+        el.style.background = tone === "ok" ? "#16a34a" : "#dc2626";
         el.textContent = text;
+        clearTimeout(bannerTimer);
+        bannerTimer = setTimeout(function () { el.style.display = "none"; }, 7000);
       }
       window.onerror = function (msg, url, line, col, error) {
         showBanner("⚠️ خطأ JS: " + msg + " — سطر " + line + ":" + col);
@@ -57,7 +61,7 @@
       .study-progress { background:rgba(24,16,45,.75); border:1px solid rgba(255,255,255,.35); border-radius:23px; padding:16px 18px 12px; }
       .progress-head,.progress-line { display:flex; justify-content:space-between; align-items:center; gap:10px; }
       .progress-head { font-weight:900; font-size:15px; }
-      .progress-head span:last-child { color:#ffd36b; direction:ltr; }
+      .progress-head span:last-child { color:#ffd36b; direction:rtl; }
       .progress-track { height:12px; background:rgba(255,255,255,.22); border-radius:99px; overflow:hidden; margin:10px 0 8px; }
       .progress-fill { height:100%; width:0; border-radius:inherit; background:linear-gradient(90deg,#ff9f25,#ffe07d); transition:width .3s; }
       .progress-line { color:#fff; font-size:13px; opacity:.9; }
@@ -97,7 +101,7 @@
     <main class="study-shell">
       <section class="study-hero">
         <div class="study-content">
-          <div class="study-topline"><span class="study-kicker">جلسة رقم <b id="sessionNumber">3</b> اليوم</span><span aria-hidden="true">📚</span></div>
+          <div class="study-topline"><span class="study-kicker">جلسة رقم <b id="sessionNumber" style="margin:0 .3em">3</b> اليوم</span><span aria-hidden="true">📚</span></div>
           <h1 class="study-title">ابدأ مذاكرة</h1>
           <div class="subject-strip" id="subjectStrip" aria-label="اختيار المادة"></div>
 
@@ -137,6 +141,8 @@
       let studyElapsedSeconds = Number(localStorage.getItem(STUDY_KEYS.elapsed)) || 0;
       let studyTimerRunning = localStorage.getItem(STUDY_KEYS.running) === "1";
       let studyTimerStart = Number(localStorage.getItem(STUDY_KEYS.start)) || 0;
+      let studyRoundStart = Number(localStorage.getItem("studyRoundStart")) || 0; // ثواني بداية جولة التركيز الحالية
+      let focusCompleting = false;
       let focusDurationMinutes = Number(localStorage.getItem("studyFocusMinutes")) || 25;
       let selectedStudySubject = localStorage.getItem("studySubject") || "history";
       const studySubjects = [{key:"history",label:"التاريخ 📜"},{key:"arabic",label:"العربي 📖"},{key:"english",label:"الإنجليزي 🔤"},{key:"philosophy",label:"الفلسفة 🧠"},{key:"math",label:"الرياضيات 📐"}];
@@ -147,6 +153,7 @@
         localStorage.setItem(STUDY_KEYS.elapsed, String(studyElapsedSeconds));
         localStorage.setItem(STUDY_KEYS.running, studyTimerRunning ? "1" : "0");
         localStorage.setItem(STUDY_KEYS.start, String(studyTimerStart));
+        localStorage.setItem("studyRoundStart", String(studyRoundStart));
       }
 
       function studyCurrentElapsed() {
@@ -170,9 +177,9 @@
         const m = Math.max(0, Math.round(mins));
         const h = Math.floor(m / 60);
         const r = m % 60;
-        if (h && r) return `${h} س ${r} د`;
-        if (h) return `${h} ساعة`;
-        return `${r} دقيقة`;
+        if (h && r) return `${h}\u200F س ${r}\u200F د`;
+        if (h) return `${h}\u200F ساعة`;
+        return `${r}\u200F دقيقة`;
       }
 
       function renderStudyPresets() {
@@ -244,10 +251,12 @@
       function updateTimerUI() {
         const elapsed = studyCurrentElapsed();
         const focusSeconds = Math.max(60, focusDurationMinutes * 60);
-        const remaining = Math.max(0, focusSeconds - elapsed);
+        const roundElapsed = Math.max(0, elapsed - studyRoundStart);
+        if (studyTimerRunning && roundElapsed >= focusSeconds) { completeFocusRound(); return; }
+        const remaining = Math.max(0, focusSeconds - roundElapsed);
         const display = document.getElementById("timerDisplay");
         if (display) display.textContent = formatStudyTime(remaining);
-        const pct = Math.min(100, Math.round((elapsed / focusSeconds) * 100));
+        const pct = Math.min(100, Math.round((roundElapsed / focusSeconds) * 100));
         const pctEl = document.getElementById("timerPercent");
         if (pctEl) pctEl.textContent = `${pct}% من جلسة التركيز`;
         const ring = document.getElementById("timerProgress");
@@ -257,6 +266,35 @@
         const status = document.getElementById("timerStatus");
         if (status) status.textContent = studyTimerRunning ? "شغّال دلوقتي… ركّز وذاكر 📚" : (elapsed > 0 ? "متوقف مؤقتًا — كمّل لما تجهز" : "جاهز تبدأ؟ يلا بينا 💪");
         document.querySelectorAll(".focus-chip").forEach((chip) => chip.classList.toggle("active", Number(chip.dataset.focus) === focusDurationMinutes));
+      }
+
+      // نهاية جولة التركيز: يتوقف التايمر ويظهر تنبيه بدل ما يفضل واقف على 00:00 ويكمل عد.
+      async function completeFocusRound() {
+        if (focusCompleting) return;
+        focusCompleting = true;
+        const capped = studyRoundStart + Math.max(60, focusDurationMinutes * 60);
+        studyElapsedSeconds = capped;
+        studyRoundStart = capped;
+        studyTimerRunning = false;
+        studyTimerStart = 0;
+        saveStudyState();
+        updateTimerUI();
+        try { if (navigator.vibrate) navigator.vibrate([250, 120, 250]); } catch (e) { /* تجاهل */ }
+        showBanner("خلّصت جولة التركيز ✅ خد راحة 5 دقايق وارجع كمّل", "ok");
+        const token = localStorage.getItem("studentAuthToken");
+        if (token) {
+          try {
+            const res = await fetch("/api/study/pause", { method: "POST", headers: { "Content-Type": "application/json", "x-student-token": token }, body: JSON.stringify({ capSeconds: capped }) });
+            const data = await res.json();
+            if (data.success && Number.isFinite(Number(data.elapsedSeconds))) {
+              studyElapsedSeconds = Number(data.elapsedSeconds);
+              studyRoundStart = Math.min(studyRoundStart, studyElapsedSeconds);
+              saveStudyState();
+              updateTimerUI();
+            }
+          } catch (e) { /* السيرفر هيتزامن عند الضغط على استكمال */ }
+        }
+        focusCompleting = false;
       }
 
       function startStudyTick() {
@@ -292,7 +330,7 @@
           updateTimerUI();
         } catch (error) {
           studyTimerRunning = wasRunning;
-          if (wasRunning) studyTimerStart = Date.now() - studyElapsedSeconds * 1000;
+          if (wasRunning) studyTimerStart = Date.now();
           saveStudyState();
           updateTimerUI();
           showBanner(error.message || "تعذر تحديث جلسة المذاكرة");
@@ -321,6 +359,7 @@
           if (!res.ok || !data.success) throw Error(data.message || "تعذر حفظ جلسة المذاكرة");
           // إعادة التهيئة
           studyElapsedSeconds = 0;
+          studyRoundStart = 0;
           studyTimerRunning = false;
           studyTimerStart = 0;
           saveStudyState();
