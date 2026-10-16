@@ -10,7 +10,7 @@
           return;
         }
         el.style.display = "block";
-        el.style.background = tone === "ok" ? "#16a34a" : "#dc2626";
+        el.style.background = tone === "ok" ? "#16a34a" : (tone === "warn" ? "#d97706" : "#dc2626");
         el.textContent = text;
         clearTimeout(bannerTimer);
         bannerTimer = setTimeout(function () { el.style.display = "none"; }, 7000);
@@ -84,7 +84,6 @@
       .study-save-btn { width:100%; padding:15px; border:0; border-radius:15px; background:linear-gradient(135deg,#ffc34b,#ff9f25); color:#24152b; font-size:17px; font-weight:900; cursor:pointer; font-family:inherit; }
       @media(max-width:560px){ .study-shell{padding:8px 8px 30px}.study-hero{border-radius:24px;padding:20px 14px 15px}.study-title{font-size:42px}.subject-pill{padding:8px 14px}.timer-actions{grid-template-columns:1fr 1fr}.study-stats b{font-size:20px}.study-presets{grid-template-columns:repeat(2,1fr)} }
     </style>
-  <script src="https://sites.super.myninja.ai/_assets/ninja-daytona-script.js"></script>
 </head>
   <body class="study-page">
     <div id="statusBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; background:#dc2626; color:#fff; padding:14px; font-size:15px; text-align:center; direction:rtl; word-break:break-word;"></div>
@@ -138,6 +137,8 @@
       };
       let studyUnit = "hours"; // hours | minutes
       let studyGoalMinutes = Number(localStorage.getItem(STUDY_KEYS.goal)) || 0;
+      // وضع المذاكرة المحلية: بيتفعّل لو السيرفر رفض بدء الجلسة، عشان الطالب يكمّل براحته
+      let studyLocalOnlyMode = false;
       let studyElapsedSeconds = Number(localStorage.getItem(STUDY_KEYS.elapsed)) || 0;
       let studyTimerRunning = localStorage.getItem(STUDY_KEYS.running) === "1";
       let studyTimerStart = Number(localStorage.getItem(STUDY_KEYS.start)) || 0;
@@ -264,7 +265,9 @@
         const btn = document.getElementById("startPauseBtn");
         if (btn) btn.textContent = studyTimerRunning ? "⏸️ إيقاف" : (elapsed > 0 ? "▶️ استكمال" : "▶️ ابدأ");
         const status = document.getElementById("timerStatus");
-        if (status) status.textContent = studyTimerRunning ? "شغّال دلوقتي… ركّز وذاكر 📚" : (elapsed > 0 ? "متوقف مؤقتًا — كمّل لما تجهز" : "جاهز تبدأ؟ يلا بينا 💪");
+        if (status) status.textContent = studyTimerRunning
+          ? (studyLocalOnlyMode ? "شغّال دلوقتي… وقتك محفوظ على جهازك 📚" : "شغّال دلوقتي… ركّز وذاكر 📚")
+          : (elapsed > 0 ? "متوقف مؤقتًا — كمّل لما تجهز" : "جاهز تبدأ؟ يلا بينا 💪");
         document.querySelectorAll(".focus-chip").forEach((chip) => chip.classList.toggle("active", Number(chip.dataset.focus) === focusDurationMinutes));
       }
 
@@ -302,12 +305,56 @@
         studyTickHandle = setInterval(updateTimerUI, 1000);
       }
 
+      /* =====================================================
+         إصلاح: السيرفر ساعات بيرجّع «تعذر بدء جلسة المذاكرة»
+         فكان الطالب بيتقفل عليه التايمر ويرجع لآخر حالة متوقفة.
+         الحل: نجرب أكتر من طريقة، ولو كلهم فشلوا نكمّل مذاكرة
+         محليًا (الوقت مش بيضيع) بدون رسالة حمراء مزعجة.
+         ===================================================== */
+      async function postStudyApi(endpoint, body) {
+        const token = localStorage.getItem("studentAuthToken");
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-student-token": token },
+          body: JSON.stringify(body || {}),
+        });
+        let data = {};
+        try { data = await res.json(); } catch (e) { data = {}; }
+        return {
+          ok: res.ok && data.success === true,
+          status: res.status,
+          auth: res.status === 401,
+          message: data.message || "",
+          data: data,
+        };
+      }
+
+      // محاولات الإنقاذ: بعض أنواع الأعطال بتتحل بإعادة الطلب بشكل مختلف
+      async function tryStartSession(isResume) {
+        // محاولة 1: البدء مع إرسال الهدف اليومي
+        let attempt = await postStudyApi("/api/study/start", { goalMinutes: studyGoalMinutes });
+        if (attempt.ok || attempt.auth) return attempt;
+
+        if (isResume) {
+          // محاولة 2: استكمال بدون تغيير الهدف (بعض السيرفرات بترفض تغيير الهدف أثناء جلسة مفتوحة)
+          attempt = await postStudyApi("/api/study/start", {});
+          if (attempt.ok || attempt.auth) return attempt;
+
+          // محاولة 3: قفل أي جلسة قديمة عالقة على السيرفر ثم البدء من جديد
+          await postStudyApi("/api/study/pause", {});
+          attempt = await postStudyApi("/api/study/start", {});
+          if (attempt.ok || attempt.auth) return attempt;
+        }
+        return attempt;
+      }
+
       async function startPauseStudy() {
         const token = localStorage.getItem("studentAuthToken");
         if (!token) { window.location.href = "login.html"; return; }
         const button = document.getElementById("startPauseBtn");
         if (button) button.disabled = true;
         const wasRunning = studyTimerRunning;
+        const isResume = !studyTimerRunning && studyCurrentElapsed() > 0;
         if (studyTimerRunning) {
           // إيقاف مؤقت
           studyElapsedSeconds = studyCurrentElapsed();
@@ -318,27 +365,76 @@
           studyTimerRunning = true;
           studyTimerStart = Date.now();
         }
+        saveStudyState();
+        updateTimerUI();
         try {
-          const endpoint = wasRunning ? "/api/study/pause" : "/api/study/start";
-          const body = wasRunning ? {} : { goalMinutes: studyGoalMinutes };
-          const res = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json", "x-student-token": token }, body: JSON.stringify(body) });
-          if (res.status === 401) { const authErr = new Error("انتهت جلستك، هنوديك لتسجيل الدخول ثم كمّل مذاكرتك"); authErr.auth = true; throw authErr; }
-          const data = await res.json();
-          if (!res.ok || !data.success) throw Error(data.message || "تعذر تحديث جلسة المذاكرة");
-          if (Number.isFinite(Number(data.elapsedSeconds))) studyElapsedSeconds = Number(data.elapsedSeconds);
-          if (!wasRunning && data.running) studyTimerStart = Date.now();
-          saveStudyState();
-          updateTimerUI();
+          const attempt = wasRunning
+            ? await postStudyApi("/api/study/pause", {})
+            : await tryStartSession(isResume);
+
+          if (attempt.auth) {
+            studyTimerRunning = wasRunning;
+            if (wasRunning) studyTimerStart = Date.now();
+            saveStudyState();
+            updateTimerUI();
+            showBanner("انتهت جلستك، هنوديك لتسجيل الدخول ثم كمّل مذاكرتك");
+            setTimeout(function () { window.location.href = "login.html"; }, 2500);
+            return;
+          }
+
+          if (attempt.ok) {
+            // اتزامنّا مع السيرفر بنجاح
+            studyLocalOnlyMode = false;
+            if (Number.isFinite(Number(attempt.data && attempt.data.elapsedSeconds))) {
+              const serverElapsed = Number(attempt.data.elapsedSeconds);
+              // حماية وقت الطالب: عند الاستكمال مناخدش رقم أقل من الوقت المسجّل على جهازه
+              studyElapsedSeconds = wasRunning
+                ? serverElapsed
+                : Math.max(studyElapsedSeconds, serverElapsed);
+            }
+            if (!wasRunning && attempt.data && attempt.data.running) studyTimerStart = Date.now();
+            if (!wasRunning) {
+              await pushPendingStudySync();
+            }
+            saveStudyState();
+            updateTimerUI();
+          } else {
+            // السيرفر رفض: منمنعش الطالب — التايمر بيكمل ووقته محفوظ على جهازه
+            studyLocalOnlyMode = true;
+            saveStudyState();
+            updateTimerUI();
+            showBanner(
+              (attempt.message ? attempt.message + " — " : "") +
+                (wasRunning
+                  ? "⏸️ وقفنا التايمر على جهازك، وهنحاول نزامن وقتك مع السيرفر تاني."
+                  : "⚠️ إنت مذاكرتك شغالة عادي دلوقتي، وهنحاول نحفظ وقتك على السيرفر تاني."),
+              "warn"
+            );
+          }
         } catch (error) {
-          studyTimerRunning = wasRunning;
-          if (wasRunning) studyTimerStart = Date.now();
+          // عطل في الشبكة: نكمل محليًا برضه
+          studyLocalOnlyMode = true;
           saveStudyState();
           updateTimerUI();
-          showBanner(error.message || "تعذر تحديث جلسة المذاكرة");
-          if (error.auth) setTimeout(function () { window.location.href = "login.html"; }, 2500);
+          showBanner("النت واقع شكله — مذاكرتك كمليّة على جهازك وهنزامنها أول ما النت يرجع.", "warn");
         } finally {
           if (button) button.disabled = false;
         }
+      }
+
+      // مزامنة مؤجلة: لو جلسة قديمة محفوظة محليًا ولسه موصلتش للسيرفر
+      async function pushPendingStudySync() {
+        const pendingKey = "studyPendingSyncMinutes";
+        const pending = Number(localStorage.getItem(pendingKey) || 0);
+        if (!pending || pending < 1) return;
+        try {
+          const res = await postStudyApi("/api/study/session", {});
+          if (res.ok) {
+            localStorage.removeItem(pendingKey);
+            showBanner("✅ اتزامن وقت مذاكرتك القديم مع السيرفر", "ok");
+            refreshStudyStats();
+          }
+        } catch (e) { /* نحاول تاني بعدين */ }
       }
 
       async function finishStudy() {
@@ -365,6 +461,8 @@
           studyRoundStart = 0;
           studyTimerRunning = false;
           studyTimerStart = 0;
+          studyLocalOnlyMode = false;
+          localStorage.removeItem("studyPendingSyncMinutes");
           saveStudyState();
           updateTimerUI();
           const success = document.getElementById("studySuccess");
@@ -374,8 +472,19 @@
           }
           refreshStudyStats();
         } catch (error) {
-          showBanner(error.message || "تعذر الاتصال بالسيرفر، حاول تاني");
-          if (error.auth) setTimeout(function () { window.location.href = "login.html"; }, 2500);
+          if (error.auth) {
+            showBanner("انتهت جلستك، هنوديك لتسجيل الدخول ثم كمّل مذاكرتك");
+            setTimeout(function () { window.location.href = "login.html"; }, 2500);
+            return;
+          }
+          // وقت الطالب مش بيضيع: بنحفظه محليًا وبنحاول نزامنه أول ما يقدر
+          localStorage.setItem("studyPendingSyncMinutes", String(Math.max(1, minutes)));
+          showBanner(
+            (error.message ? error.message + " — " : "") +
+              "⏳ وقت مذاكرتك محفوظ على جهازك، وهنحاول نزامنه مع السيرفر تاني (بدون ما توقف مذاكرة).",
+            "warn"
+          );
+          refreshStudyStats();
         }
       }
 

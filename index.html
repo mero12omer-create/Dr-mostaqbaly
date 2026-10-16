@@ -11,10 +11,10 @@
 <header class="fixed-header">
   <div class="navbar">
     <h2 class="logo">دكتور مستقبلي 🩺</h2>
-<button class="icon-btn" onclick="toggleSearch()">🔍</button>
+<button class="icon-btn" type="button" data-action="toggle-search" title="بحث">🔍</button>
 
 <div id="searchBox" style="display: none; width: 100%; margin-top: 15px; padding: 15px; background: var(--card-bg, #fff); border: 1px solid var(--border, #ccc); border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); box-sizing: border-box;">
-  <input type="text" id="searchInput" onkeyup="doSearch()" placeholder="🔍 اكتب اسم الدرس أو المذكرة للبحث..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border, #ccc); background: var(--bg, #fff); color: var(--text, #000); font-family: inherit; font-size: 14px; box-sizing: border-box; outline: none;">
+  <input type="text" id="searchInput" placeholder="🔍 اكتب اسم الدرس أو المذكرة للبحث..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border, #ccc); background: var(--bg, #fff); color: var(--text, #000); font-family: inherit; font-size: 14px; box-sizing: border-box; outline: none;">
   <div id="searchResults" style="margin-top: 10px; max-height: 200px; overflow-y: auto;"></div>
 </div>
       <button class="icon-btn" id="themeToggle" title="تغيير المظهر">🌙</button>
@@ -70,8 +70,8 @@
     <div class="win-content">
         <span class="win-icon">🎉</span>
         <p id="winMessage">مبروك يا دكتور! فزت بلقب جديد وشهادة تقدير!</p>
-        <button onclick="viewCertificate()" class="win-btn">استلم الشهادة 📜</button>
-        <button onclick="closeBanner()" class="close-banner">✕</button>
+        <button type="button" data-action="view-certificate" class="win-btn">استلم الشهادة 📜</button>
+        <button type="button" data-action="close-banner" class="close-banner" title="إغلاق">✕</button>
     </div>
 </div>
   <section class="main-cards-section">

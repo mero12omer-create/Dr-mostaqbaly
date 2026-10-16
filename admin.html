@@ -447,19 +447,19 @@
       <div class="admin-card" style="margin:18px 0"><h3>⚡ إضافة أسئلة جماعية</h3>
         <p>اختر المادة والفرع واكتب اسم الدرس من نموذج إضافة السؤال اليدوي أعلاه، ثم الصق الأسئلة هنا.</p>
         <textarea id="bulkQuestions" rows="12" style="width:100%;padding:12px" placeholder="س1: نص السؤال&#10;A) الاختيار الأول&#10;B) الاختيار الثاني&#10;C) الاختيار الثالث&#10;D) الاختيار الرابع&#10;ANSWER: B&#10;---&#10;س2: ..."></textarea>
-        <button class="btn-main" type="button" onclick="previewBulkQuestions()">معاينة الأسئلة</button>
+        <button class="btn-main" type="button" data-action="preview-bulk">معاينة الأسئلة</button>
         <div id="bulkPreview" style="white-space:pre-wrap;margin:12px 0" aria-live="polite"></div>
-        <button id="bulkSave" class="btn-main" type="button" onclick="saveBulkQuestions()" disabled>حفظ كل الأسئلة المعتمدة</button>
+        <button id="bulkSave" class="btn-main" type="button" data-action="save-bulk" disabled>حفظ كل الأسئلة المعتمدة</button>
       </div>
         <div class="admin-card">
           <h3>إضافة درس/سؤال جديد (يدوي) 📝</h3>
           <div class="form-group">
             <label>اختر المادة:</label>
-            <select id="examSubSelect" onchange="updateLessonList()"></select>
+            <select id="examSubSelect" data-action="load-lessons"></select>
           </div>
           <div class="form-group">
             <label>الفرع:</label>
-            <select id="examBranch">
+            <select id="examBranch" data-action="load-lessons">
               <option value="عام">عام 🎓</option>
               <option value="أزهر">أزهر 🕌</option>
               <option value="مشترك">مشترك 🔄</option>
@@ -470,8 +470,11 @@
             <input
               type="text"
               id="lessonTitle"
+              list="lessonTitleOptions"
               placeholder="مثال: الدرس الأول: النحو"
             />
+            <datalist id="lessonTitleOptions"></datalist>
+            <p id="lessonListHint" style="font-size:12px;color:gray;margin:6px 0 0"></p>
           </div>
           <hr
             style="
@@ -623,7 +626,7 @@
       </div>
 
       <div id="studentsTab" class="tab-content" style="display: none">
-        <button class="btn-main" type="button" onclick="downloadStudentsResults()" style="margin:12px 0">📊 تنزيل جدول كل الطلاب ودرجات الامتحانات (Excel/CSV)</button>
+        <button class="btn-main" type="button" data-action="download-results" style="margin:12px 0">📊 تنزيل جدول كل الطلاب ودرجات الامتحانات (Excel/CSV)</button>
         <div class="admin-card">
           <h3>👨‍🎓 إدارة حساب طالب</h3>
           <div class="form-group">
@@ -870,10 +873,10 @@
                 (opt, oIdx) => `
                 <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
                   <input type="radio" name="correct_${qIdx}" ${oIdx === q.correct ? "checked" : ""}
-                    onchange="setCorrectOption(${qIdx}, ${oIdx})" />
+                    data-action="set-correct" data-q="${qIdx}" data-o="${oIdx}" />
                   <strong style="min-width:22px; color:var(--primary);">${optionLetters[oIdx] || oIdx + 1}:</strong>
                   <input type="text" value="${escapeAdminHtml(opt || "")}"
-                    oninput="updateOptionText(${qIdx}, ${oIdx}, this.value)"
+                    data-action="option-text" data-q="${qIdx}" data-o="${oIdx}"
                     style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
                 </div>`,
               )
@@ -884,20 +887,20 @@
                 <div style="display:flex; justify-content:space-between; gap:10px;">
                   <strong>سؤال ${qIdx + 1}</strong>
                   <button class="btn-outline" style="padding:4px 10px; font-size:12px; color:red; border-color:red;"
-                    onclick="removeAiQuestion(${qIdx})">حذف السؤال 🗑️</button>
+                    data-action="remove-ai-q" data-q="${qIdx}">حذف السؤال 🗑️</button>
                 </div>
                 <textarea rows="2" style="margin:8px 0; width:100%; padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text);"
-                  oninput="updateQuestionText(${qIdx}, this.value)">${escapeAdminHtml(q.q || "")}</textarea>
+                  data-action="question-text" data-q="${qIdx}">${escapeAdminHtml(q.q || "")}</textarea>
                 <label style="font-size:12px; color:gray;">الاختيارات (حدد دائرة الإجابة الصحيحة):</label>
                 ${optionsHtml}
                 <div style="font-size:12px; color:#166534; margin:8px 0;">✅ الإجابة الحالية: ${optionLetters[q.correct] || (q.correct + 1)}</div>
                 <label style="font-size:12px; color:gray;">الشرح (اختياري):</label>
                 <input type="text" value="${escapeAdminHtml(q.exp || "")}"
-                  oninput="updateExpText(${qIdx}, this.value)"
+                  data-action="exp-text" data-q="${qIdx}"
                   style="width:100%; padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text); margin-bottom:8px;" />
                 <label style="font-size:12px; color:gray;">عدد نقاط هذا السؤال:</label>
                 <input type="number" min="1" max="10" value="${escapeAdminHtml(q.points || 2)}"
-                  oninput="updatePoints(${qIdx}, this.value)"
+                  data-action="points" data-q="${qIdx}"
                   style="width:100px; padding:8px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--text);" />
               </div>`;
           })
@@ -1639,5 +1642,100 @@
         }
       }
     </script>
-  </body>
+  
+  <script>
+    /* =========================================================
+       إصلاح سياسة الأمان (CSP): تشغيل أزرار لوحة الأدمن
+       كانت مربوطة بـ onclick / oninput / onchange داخل HTML
+       وده محظور بسبب script-src-attr 'none'  فكانت الأزرار لا تعمل.
+       ========================================================= */
+    (function () {
+      document.addEventListener("click", function (event) {
+        var el = event.target.closest("[data-action]");
+        if (!el) return;
+        var action = el.getAttribute("data-action");
+        if (action === "preview-bulk") { event.preventDefault(); previewBulkQuestions(); }
+        else if (action === "save-bulk") { event.preventDefault(); saveBulkQuestions(); }
+        else if (action === "download-results") { event.preventDefault(); downloadStudentsResults(); }
+        else if (action === "remove-ai-q") { event.preventDefault(); removeAiQuestion(Number(el.getAttribute("data-q"))); }
+      });
+
+      document.addEventListener("input", function (event) {
+        var el = event.target.closest("[data-action]");
+        if (!el) return;
+        var action = el.getAttribute("data-action");
+        var q = Number(el.getAttribute("data-q"));
+        if (action === "option-text") updateOptionText(q, Number(el.getAttribute("data-o")), el.value);
+        else if (action === "question-text") updateQuestionText(q, el.value);
+        else if (action === "exp-text") updateExpText(q, el.value);
+        else if (action === "points") updatePoints(q, el.value);
+      });
+
+      document.addEventListener("change", function (event) {
+        var el = event.target.closest("[data-action]");
+        if (!el) return;
+        var action = el.getAttribute("data-action");
+        if (action === "set-correct") setCorrectOption(Number(el.getAttribute("data-q")), Number(el.getAttribute("data-o")));
+        else if (action === "load-lessons") updateLessonList();
+      });
+
+      /* =========================================================
+         دالة updateLessonList()
+         كانت مستدعاة من onchange في القائمة لكنها غير معرّفة في الكود
+         (فكانت بتطلع خطأ ReferenceError). اتعملت هنا:
+         بتجيب أسماء الدروس المنشورة للمادة المختارة وتقترحها للدكتور
+         عشان يستخدم نفس الاسم بالظبط وميحصلش تكرار للدروس.
+         ========================================================= */
+      async function updateLessonList() {
+        var subSelect = document.getElementById("examSubSelect");
+        var datalist = document.getElementById("lessonTitleOptions");
+        var hint = document.getElementById("lessonListHint");
+        if (!subSelect || !datalist) return;
+
+        var subjectKey = subSelect.value;
+        var branchSelect = document.getElementById("examBranch");
+        var branch = branchSelect ? branchSelect.value : "عام";
+        var normalize = function (key) {
+          return window.SubjectCatalog && SubjectCatalog.normalizeSubjectKey
+            ? SubjectCatalog.normalizeSubjectKey(key || "")
+            : String(key || "");
+        };
+
+        datalist.innerHTML = "";
+        if (hint) hint.textContent = "";
+        if (!subjectKey) return;
+
+        try {
+          var res = await fetch("/api/exams?branch=" + encodeURIComponent(branch));
+          var data = res.ok ? await res.json() : null;
+          var exams = (data && data.success && data.exams) || [];
+          var titles = [];
+          var seen = {};
+          exams.forEach(function (exam) {
+            if (normalize(exam.subjectKey) !== normalize(subjectKey)) return;
+            var title = String(exam.lessonTitle || "").trim();
+            if (title && !seen[title]) { seen[title] = true; titles.push(title); }
+          });
+          datalist.innerHTML = titles
+            .map(function (title) { return '<option value="' + escapeAdminHtml(title) + '"></option>'; })
+            .join("");
+          if (hint) {
+            hint.textContent = titles.length
+              ? "💡 فيه " + titles.length + " درس محفوظ في المادة دي بالفعل — اختار من الاقتراحات أو اكتب اسم جديد."
+              : "مفيش دروس محفوظة للمادة دي لسه — اكتب اسم الدرس الجديد.";
+          }
+        } catch (err) {
+          if (hint) hint.textContent = "";
+        }
+      }
+      window.updateLessonList = updateLessonList;
+
+      /* تحديث الاقتراحات أول ما الدكتور ييجي يكتب اسم الدرس */
+      var lessonTitleInput = document.getElementById("lessonTitle");
+      if (lessonTitleInput) {
+        lessonTitleInput.addEventListener("focus", updateLessonList);
+      }
+    })();
+  </script>
+</body>
 </html>

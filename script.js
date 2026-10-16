@@ -368,62 +368,129 @@ function updateChatStatus(status, isError = false) {
   }
 }
 
-function toggleSearch() {
-  const searchBar =
-    document.getElementById("searchBar") ||
-    document.getElementById("searchBox");
-  if (searchBar) {
-    searchBar.style.display =
-      searchBar.style.display === "none" || searchBar.style.display === ""
-        ? "block"
-        : "none";
-  }
+// أدوات البحث: الصفحات فيها صندوقين محتملين
+// searchBox (صفحة الرئيسية، فيه نتائج فورية) و searchBar (الصفحات التانية)
+function getSearchTargets() {
+  const box = document.getElementById("searchBox");
+  const bar = document.getElementById("searchBar");
+  return { box: box, bar: bar, main: box || bar };
 }
 
-// دالة البحث الحي (doSearch) المستدعاة من index.html
-function doSearch() {
+function isSearchVisible(el) {
+  if (!el) return false;
+  return getComputedStyle(el).display !== "none";
+}
+
+function openSearchBox() {
+  const targets = getSearchTargets();
+  if (!targets.main) return false;
+  if (targets.main === targets.bar) {
+    targets.bar.classList.add("active");
+    targets.bar.style.display = "flex";
+  } else {
+    targets.main.style.display = "block";
+  }
+  const input = targets.main.querySelector("input");
+  if (input) input.focus();
+  return true;
+}
+
+function closeSearchBox() {
+  const targets = getSearchTargets();
+  if (!targets.main) return;
+  targets.main.style.display = "none";
+  if (targets.main === targets.bar) targets.bar.classList.remove("active");
+}
+
+function toggleSearch() {
+  const targets = getSearchTargets();
+  // في الصفحات اللي مفيهاش صندوق بحث (زي صفحة المعلم الذكي)
+  // نودّي الطالب لصفحة الرئيسية ونفتح البحث تلقائياً
+  if (!targets.main) {
+    window.location.href = "index.html?search=1";
+    return;
+  }
+  if (isSearchVisible(targets.main)) closeSearchBox();
+  else openSearchBox();
+}
+
+// دالة البحث الحي (doSearch): تبحث في المذكرات والدروس والامتحانات
+// (محليًا + من السيرفر) وتعمل بدون أي onclick داخل HTML
+async function doSearch() {
   const input = document.getElementById("searchInput");
   const resultsBox = document.getElementById("searchResults");
   if (!input || !resultsBox) return;
+
   const query = input.value.trim().toLowerCase();
   if (query === "") {
     resultsBox.innerHTML = "";
     return;
   }
 
-  // البحث في المذكرات والامتحانات المخزنة محلياً
-  let found = [];
+  const found = [];
+  const seen = new Set();
+  const add = (type, title, link) => {
+    const clean = String(title || "").trim();
+    if (!clean) return;
+    const key = type + "|" + clean;
+    if (seen.has(key)) return;
+    seen.add(key);
+    found.push({ type: type, title: clean, link: link });
+  };
+
+  // 1) بيانات محفوظة محليًا (لو موجودة)
   try {
     const notes = JSON.parse(localStorage.getItem("notesData")) || [];
-    notes.forEach((n) => {
-      if ((n.title || "").toLowerCase().includes(query)) {
-        found.push({ type: "مذكرة", title: n.title, link: "notes.html" });
-      }
-    });
+    notes.forEach((n) => add("مذكرة", n.title, "notes.html"));
   } catch (e) {}
-
   try {
     const courses = JSON.parse(localStorage.getItem("coursesData")) || {};
     Object.keys(courses).forEach((key) => {
-      (courses[key].lessons || []).forEach((l) => {
-        if ((l.title || "").toLowerCase().includes(query)) {
-          found.push({ type: "درس", title: l.title, link: "exams.html" });
-        }
-      });
+      (courses[key].lessons || []).forEach((l) => add("درس", l.title, "exams.html"));
     });
   } catch (e) {}
 
-  if (found.length === 0) {
+  // 2) بحث من السيرفر (الامتحانات متاحة للجميع، والمذكرات للمسجّلين)
+  const token = localStorage.getItem("studentAuthToken");
+  const branch = localStorage.getItem("userBranch") || "عام";
+  const headers = token ? { "x-student-token": token } : {};
+  const jobs = [
+    fetch("/api/exams?branch=" + encodeURIComponent(branch))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d && d.success) (d.exams || []).forEach((x) => add("امتحان", x.lessonTitle, "exams.html"));
+      })
+      .catch(() => {}),
+  ];
+  if (token) {
+    jobs.push(
+      fetch("/api/notes?branch=" + encodeURIComponent(branch), { headers: headers })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (d && d.success) (d.notes || []).forEach((n) => add("مذكرة", n.title, "notes.html"));
+        })
+        .catch(() => {}),
+    );
+  }
+
+  resultsBox.innerHTML =
+    '<p style="color: gray; font-size: 13px; padding: 8px;">جاري البحث… 🔍</p>';
+  await Promise.all(jobs);
+
+  const matches = found
+    .filter((f) => f.title.toLowerCase().includes(query))
+    .slice(0, 8);
+
+  if (matches.length === 0) {
     resultsBox.innerHTML =
       '<p style="color: gray; font-size: 13px; padding: 8px;">لا توجد نتائج مطابقة 🔍</p>';
     return;
   }
 
-  resultsBox.innerHTML = found
-    .slice(0, 8)
+  resultsBox.innerHTML = matches
     .map(
       (f) =>
-        `<a href="${f.link}" style="display:block; padding:8px; text-decoration:none; color:var(--text); border-bottom:1px solid var(--border);">${f.type} • ${f.title}</a>`,
+        `<a href="${f.link}" style="display:block; padding:8px; text-decoration:none; color:var(--text, #000); border-bottom:1px solid var(--border, #eee);">${f.type} • ${f.title}</a>`,
     )
     .join("");
 }
@@ -521,12 +588,17 @@ function viewCertificate() {
   window.location.href = "profile.html#certificates";
 }
 
-function performSearch() {
+async function performSearch() {
+  // لو الصفحة فيها صندوق نتائج بحث نستخدمه مباشرة
+  if (document.getElementById("searchResults")) {
+    await doSearch();
+    return;
+  }
+  // وإلا (زي صفحة الملف الشخصي) نكمّل البحث في الصفحة الرئيسية
   const input = document.getElementById("searchInput");
-  if (!input) return;
-  const query = input.value.trim().toLowerCase();
-  if (query === "") return;
-  alert(`جاري البحث عن: ${query}`);
+  const query = input ? input.value.trim() : "";
+  window.location.href =
+    "index.html?search=1" + (query ? "&q=" + encodeURIComponent(query) : "");
 }
 
 async function initProfilePage() {
@@ -724,3 +796,88 @@ async function loadLeaderboard() {
   }
 })();
  
+
+
+/* =========================================================
+   إصلاح سياسة الأمان (CSP)
+   الموقع بيستخدم ترويسة أمان بتمنع أكواد JavaScript المضمّنة داخل
+   وسوم HTML (script-src-attr 'none')، وده كان بيعطّل أزرار مهمة
+   (البحث 🔍 / إغلاق بانر التهنئة / استلام الشهادة / تحميل PDF).
+   لذلك تم ربط كل هذه الأزرار من هنا عبر data-action.
+   ========================================================= */
+(function bindCspSafeHandlers() {
+  document.addEventListener("click", function (event) {
+    const el = event.target.closest("[data-action]");
+    if (!el) return;
+    const action = el.getAttribute("data-action");
+
+    if (action === "toggle-search") {
+      event.preventDefault();
+      toggleSearch();
+    } else if (action === "close-banner") {
+      event.preventDefault();
+      closeBanner();
+    } else if (action === "view-certificate") {
+      event.preventDefault();
+      viewCertificate();
+    } else if (action === "go-home") {
+      event.preventDefault();
+      window.location.href = "index.html";
+    } else if (action === "open-cert") {
+      event.preventDefault();
+      const certId = el.getAttribute("data-cert-id");
+      if (certId) {
+        window.open("/api/certificate-pdf/" + encodeURIComponent(certId), "_blank");
+      }
+    }
+  });
+
+  function initSearchBindings() {
+    const searchInput = document.getElementById("searchInput");
+    const resultsBox = document.getElementById("searchResults");
+
+    // البحث الحي أثناء الكتابة (بدل onkeyup المضمّن)
+    if (searchInput && resultsBox) {
+      let timer = null;
+      searchInput.addEventListener("input", function () {
+        clearTimeout(timer);
+        timer = setTimeout(function () {
+          doSearch();
+        }, 250);
+      });
+      searchInput.addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          clearTimeout(timer);
+          doSearch();
+        }
+      });
+    }
+
+    // زر "بحث" في الشريط (صفحة الملف الشخصي)
+    const searchSubmitBtn = document.getElementById("searchSubmitBtn");
+    if (searchSubmitBtn) {
+      searchSubmitBtn.addEventListener("click", function (event) {
+        event.preventDefault();
+        performSearch();
+      });
+    }
+
+    // فتح صندوق البحث تلقائيًا عند الوصول من زر 🔍 في صفحة أخرى
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("search") === "1") {
+      openSearchBox();
+      const q = params.get("q");
+      if (q && searchInput && resultsBox) {
+        searchInput.value = q;
+        doSearch();
+      }
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initSearchBindings);
+  } else {
+    initSearchBindings();
+  }
+})();
