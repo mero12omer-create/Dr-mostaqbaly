@@ -91,6 +91,7 @@ const PUBLIC_PAGE_FILES = new Set([
   "profile.html",
   "signup.html",
   "admin.html",
+  "diagnostic.html",
   "script.js",
   "subjects.js",
     "style.css",

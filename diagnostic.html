@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>تشخيص جلسة المذاكرة - دكتور مستقبلي</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .diag-card { background: var(--card-bg, #fff); border: 1px solid var(--border, #e5e7eb); border-radius: 14px; padding: 16px; margin: 14px 0; }
+    .diag-btn { display: block; width: 100%; padding: 12px; margin: 8px 0; border-radius: 10px; border: 0; font-family: inherit; font-size: 15px; cursor: pointer; background: var(--primary, #2563eb); color: #fff; }
+    .diag-btn.secondary { background: #6b7280; }
+    .diag-btn.danger { background: #dc2626; }
+    .diag-out { background: #0f172a; color: #e2e8f0; border-radius: 10px; padding: 12px; margin-top: 10px; font-size: 12px; white-space: pre-wrap; word-break: break-word; direction: ltr; text-align: left; max-height: 260px; overflow: auto; }
+    .diag-ok { color: #16a34a; font-weight: bold; }
+    .diag-bad { color: #dc2626; font-weight: bold; }
+    .diag-warn { color: #d97706; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <header class="fixed-header">
+    <div class="navbar">
+      <h2 class="logo">دكتور مستقبلي 🩺</h2>
+      <div class="nav-actions"><a href="index.html" class="icon-btn" title="الرئيسية">🏠</a></div>
+    </div>
+  </header>
+
+  <main class="container" style="margin-top: 90px; padding-bottom: 40px">
+    <h2>🔍 تشخيص جلسة المذاكرة</h2>
+    <p style="color: gray; font-size: 14px">
+      الصفحة دي بتوريك <strong>رد السيرفر الحقيقي</strong> على كل طلب بيتبعت من صفحة المذاكرة.
+      افتحها وإنت مسجل دخول بحساب الطالب، واضغط الأزرار بالترتيب، وبعدين ابعت النتيجة للدعم.
+    </p>
+
+    <div class="diag-card">
+      <h3>1) بيانات الجلسة</h3>
+      <div id="tokenState"></div>
+    </div>
+
+    <div class="diag-card">
+      <h3>2) اختبار القراءة (آمن - مقرّش بيانات)</h3>
+      <button class="diag-btn" id="btnStats">📊 اختبار /api/study/stats</button>
+      <div class="diag-out" id="outStats">لسه متجربش…</div>
+    </div>
+
+    <div class="diag-card">
+      <h3>3) اختبار بدء الجلسة (بيبدأ جلسة فعلية)</h3>
+      <p style="font-size: 13px; color: gray">لو المنت الخالية شغالة، اضغط الزرار ده وابعت النتيجة.</p>
+      <button class="diag-btn" id="btnStartGoal">▶️ بدء بالهدف المحفوظ (goalMinutes)</button>
+      <div class="diag-out" id="outStartGoal">لسه متجربش…</div>
+      <button class="diag-btn secondary" id="btnStartEmpty">▶️ بدء بدون هدف (طلب فاضي)</button>
+      <div class="diag-out" id="outStartEmpty">لسه متجربش…</div>
+    </div>
+
+    <div class="diag-card">
+      <h3>4) اختبار الإيقاف المؤقت</h3>
+      <button class="diag-btn secondary" id="btnPause">⏸️ إيقاف /api/study/pause</button>
+      <div class="diag-out" id="outPause">لسه متجربش…</div>
+    </div>
+
+    <div class="diag-card">
+      <h3>5) اختبار حفظ الجلسة</h3>
+      <button class="diag-btn danger" id="btnSession">💾 حفظ الجلسة /api/study/session</button>
+      <div class="diag-out" id="outSession">لسه متجربش…</div>
+    </div>
+
+    <div class="diag-card">
+      <h3>6) التقرير النهائي</h3>
+      <button class="diag-btn" id="btnCopy">📋 نسخ كل النتائج</button>
+      <button class="diag-btn secondary" id="btnDownload">⬇️ تنزيل التقرير كملف</button>
+      <div class="diag-out" id="outAll">لسه مفيش نتائج…</div>
+    </div>
+  </main>
+
+  <script src="script.js"></script>
+  <script>
+    (function () {
+      const results = [];
+      const token = localStorage.getItem("studentAuthToken") || "";
+      const goal = Number(localStorage.getItem("studyGoalMinutes")) || 0;
+
+      function show(id, status, body) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = "HTTP " + status + "\n" + JSON.stringify(body, null, 2);
+        el.className = "diag-out";
+      }
+
+      async function call(id, path, body, desc) {
+        const el = document.getElementById(id);
+        const t0 = Date.now();
+        let status = "ERR", data = {};
+        try {
+          const res = await fetch(path, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-student-token": token },
+            body: JSON.stringify(body || {}),
+          });
+          status = res.status;
+          try { data = await res.json(); } catch (e) { data = { raw: "non-json" }; }
+        } catch (e) {
+          data = { error: String(e && e.message ? e.message : e) };
+        }
+        show(id, status, data);
+        const ok = status === 200 && data && data.success === true;
+        results.push({ desc: desc, path: path, sent: body || {}, status: status, response: data, ms: Date.now() - t0 });
+        if (el) el.className = "diag-out " + (ok ? "diag-ok" : status === 401 ? "diag-warn" : "diag-bad");
+      }
+
+      async function callGet(id, path, desc) {
+        let status = "ERR", data = {};
+        try {
+          const res = await fetch(path, { headers: { "x-student-token": token } });
+          status = res.status;
+          try { data = await res.json(); } catch (e) { data = {}; }
+        } catch (e) { data = { error: String(e && e.message ? e.message : e) }; }
+        show(id, status, data);
+        const el = document.getElementById(id);
+        if (el) el.className = "diag-out " + (status === 200 ? "diag-ok" : "diag-bad");
+        results.push({ desc: desc, path: path, sent: null, status: status, response: data });
+      }
+
+      // 1) حالة الجلسة
+      const tokenState = document.getElementById("tokenState");
+      tokenState.innerHTML =
+        '<p>' + (token ? '<span class="diag-ok">✅ فيه توكن طالب محفوظ</span> (طول ' + token.length + ' حرف)' : '<span class="diag-bad">❌ مفيش توكن طالب — سجّل دخول الأول من login.html</span>') + '</p>' +
+        '<p>هدف المذاكرة المحفوظ: <strong>' + (goal || "مش محدد") + '</strong> دقيقة</p>' +
+        '<p style="font-size:13px;color:gray">الرابط الحالي: ' + location.origin + '</p>';
+
+      document.getElementById("btnStats").onclick = () => callGet("outStats", "/api/study/stats", "GET /api/study/stats");
+      document.getElementById("btnStartGoal").onclick = () => call("outStartGoal", "/api/study/start", { goalMinutes: goal || 120 }, "POST /api/study/start مع goalMinutes");
+      document.getElementById("btnStartEmpty").onclick = () => call("outStartEmpty", "/api/study/start", {}, "POST /api/study/start بدون هدف");
+      document.getElementById("btnPause").onclick = () => call("outPause", "/api/study/pause", {}, "POST /api/study/pause");
+      document.getElementById("btnSession").onclick = () => call("outSession", "/api/study/session", {}, "POST /api/study/session");
+
+      function report() {
+        return JSON.stringify({
+          time: new Date().toISOString(),
+          url: location.href,
+          userAgent: navigator.userAgent,
+          hasToken: Boolean(token),
+          goalMinutes: goal,
+          results: results,
+        }, null, 2);
+      }
+
+      document.getElementById("btnCopy").onclick = async function () {
+        const text = report();
+        document.getElementById("outAll").textContent = text;
+        try {
+          await navigator.clipboard.writeText(text);
+          alert("تم نسخ التقرير ✅ ابعته للدعم");
+        } catch (e) {
+          alert("انسخ التقرير يدويًا من الصندوق تحت");
+        }
+      };
+
+      document.getElementById("btnDownload").onclick = function () {
+        const blob = new Blob([report()], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "study-diagnostic-report.json";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        document.getElementById("outAll").textContent = report();
+      };
+    })();
+  </script>
+</body>
+</html>
