@@ -87,6 +87,7 @@ const PUBLIC_PAGE_FILES = new Set([
   "leaderboard.html",
   "login.html",
   "notes.html",
+  "study.html",
   "profile.html",
   "signup.html",
   "admin.html",
