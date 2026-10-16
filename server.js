@@ -187,7 +187,8 @@ if (!process.env.ADMIN_PASSWORD) {
 const ADMIN_PASS_HASH = hashString(
   process.env.ADMIN_PASSWORD || crypto.randomBytes(16).toString("hex"), // قيمة عشوائية غير معروفة إن لم تُضبط، فلا يمكن تخمينها
 );
-const SESSION_TTL = 3 * 60 * 60 * 1000; // 3 ساعات
+const SESSION_TTL = 3 * 60 * 60 * 1000; // 3 ساعات (للأدمن)
+const STUDENT_SESSION_TTL = 30 * 24 * 60 * 60 * 1000; // 30 يوم للطالب، عشان جلسات المذاكرة الطويلة ما تقطعش
 
 // محاولات دخول الأدمن الفاشلة (حماية إضافية ضد التخمين العشوائي)
 const adminFailedAttempts = {}; // ip -> { count, until }
@@ -226,7 +227,7 @@ function createAdminSession() {
 function createStudentSession(phone) {
   return new Promise((resolve, reject) => {
     const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + SESSION_TTL);
+    const expiresAt = new Date(Date.now() + STUDENT_SESSION_TTL);
     db.run(
       `INSERT INTO sessions (token, kind, phone, expires_at) VALUES (?, 'student', ?, ?) RETURNING token`,
       [token, phone, expiresAt],
@@ -250,6 +251,10 @@ function requireStudentAuth(req, res, next) {
       if (err || !session || new Date(session.expires_at).getTime() < Date.now()) {
         if (session) db.run(`DELETE FROM sessions WHERE token = ?`, [token]);
         return res.status(401).json({ success: false, message: "انتهت جلسة الطالب، سجل الدخول من جديد" });
+      }
+      // تجديد تلقائي: كل ما الطالب يستخدم المنصة الجلسة بتتمدد (يشمل الجلسات القديمة اللي لسه شغالة)
+      if (new Date(session.expires_at).getTime() - Date.now() < STUDENT_SESSION_TTL / 2) {
+        db.run(`UPDATE sessions SET expires_at = ? WHERE token = ?`, [new Date(Date.now() + STUDENT_SESSION_TTL), token]);
       }
       req.studentPhone = session.phone;
       next();
