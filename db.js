@@ -33,15 +33,33 @@ function convertPlaceholders(sql) {
   return sql.replace(/\?/g, () => `$${++i}`);
 }
 
+// جداول ملهاش عمود id (المفتاح الأساسي بتاعها حاجة تانية).
+// إضافة "RETURNING id" لأي INSERT عليها بتخلي Postgres يرفض الاستعلام
+// بالكامل بخطأ: column "id" does not exist — وده كان بيعطّل بدء جلسة المذاكرة
+// لكل طالب من أول مرة.
+const TABLES_WITHOUT_ID = new Set([
+  "active_study_sessions", // المفتاح الأساسي: phone
+  "otp_verifications",     // المفتاح الأساسي: email
+  "sessions",              // المفتاح الأساسي: token
+]);
+
 // لو الاستعلام INSERT ومحتاجين نعرف الـ id بتاع الصف الجديد (زي this.lastID في sqlite)
 function ensureReturningId(sql) {
   const trimmed = sql.trim();
   const isInsert = /^insert\s+into/i.test(trimmed);
   const hasReturning = /returning/i.test(trimmed);
-  if (isInsert && !hasReturning) {
-    return `${trimmed.replace(/;\s*$/, "")} RETURNING id`;
+  if (!isInsert || hasReturning) {
+    return sql;
   }
-  return sql;
+
+  // اسم الجدول المستهدف — لو مالوش عمود id مانضيفش RETURNING id
+  const tableMatch = trimmed.match(/^insert\s+into\s+"?([a-zA-Z0-9_]+)"?/i);
+  const tableName = tableMatch ? tableMatch[1].toLowerCase() : "";
+  if (TABLES_WITHOUT_ID.has(tableName)) {
+    return sql;
+  }
+
+  return `${trimmed.replace(/;\s*$/, "")} RETURNING id`;
 }
 
 // Postgres بيحوّل أسماء الأعمدة غير المقتبسة لحروف صغيرة (ownerName → ownername)،

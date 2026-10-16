@@ -1081,7 +1081,8 @@ app.post("/api/study/start", requireStudentAuth, pointsLimiter, (req, res) => {
           res.json({ success: true, running: true, elapsedSeconds: Number(row.accumulated_seconds || 0), goalMinutes });
         });
       }
-      db.run(`INSERT INTO active_study_sessions (phone, goal_minutes, accumulated_seconds, started_at, status) VALUES (?, ?, 0, NOW(), 'running')`, [req.studentPhone, goalMinutes], (insertErr) => {
+      db.run(`INSERT INTO active_study_sessions (phone, goal_minutes, accumulated_seconds, started_at, status) VALUES (?, ?, 0, NOW(), 'running')
+              ON CONFLICT (phone) DO UPDATE SET goal_minutes = EXCLUDED.goal_minutes, accumulated_seconds = 0, started_at = NOW(), status = 'running', updated_at = NOW()`, [req.studentPhone, goalMinutes], (insertErr) => {
         if (insertErr) return res.status(500).json({ success: false, message: "تعذر بدء جلسة المذاكرة" });
         res.json({ success: true, running: true, elapsedSeconds: 0, goalMinutes });
       });
