@@ -322,6 +322,7 @@
           const endpoint = wasRunning ? "/api/study/pause" : "/api/study/start";
           const body = wasRunning ? {} : { goalMinutes: studyGoalMinutes };
           const res = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json", "x-student-token": token }, body: JSON.stringify(body) });
+          if (res.status === 401) { const authErr = new Error("انتهت جلستك، هنوديك لتسجيل الدخول ثم كمّل مذاكرتك"); authErr.auth = true; throw authErr; }
           const data = await res.json();
           if (!res.ok || !data.success) throw Error(data.message || "تعذر تحديث جلسة المذاكرة");
           if (Number.isFinite(Number(data.elapsedSeconds))) studyElapsedSeconds = Number(data.elapsedSeconds);
@@ -334,6 +335,7 @@
           saveStudyState();
           updateTimerUI();
           showBanner(error.message || "تعذر تحديث جلسة المذاكرة");
+          if (error.auth) setTimeout(function () { window.location.href = "login.html"; }, 2500);
         } finally {
           if (button) button.disabled = false;
         }
@@ -355,6 +357,7 @@
             headers: { "Content-Type": "application/json", "x-student-token": token },
             body: JSON.stringify({}),
           });
+          if (res.status === 401) { const authErr = new Error("انتهت جلستك، هنوديك لتسجيل الدخول ثم كمّل مذاكرتك"); authErr.auth = true; throw authErr; }
           const data = await res.json();
           if (!res.ok || !data.success) throw Error(data.message || "تعذر حفظ جلسة المذاكرة");
           // إعادة التهيئة
@@ -372,6 +375,7 @@
           refreshStudyStats();
         } catch (error) {
           showBanner(error.message || "تعذر الاتصال بالسيرفر، حاول تاني");
+          if (error.auth) setTimeout(function () { window.location.href = "login.html"; }, 2500);
         }
       }
 
