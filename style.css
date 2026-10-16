@@ -11,6 +11,7 @@
   --text-light: #64748b;
   --border: #e2e8f0;
   --shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --font-arabic: "Noto Sans Arabic", "Noto Kufi Arabic", Tahoma, Arial, sans-serif;
 }
 
 body.dark {
@@ -26,20 +27,55 @@ body.dark {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family:
-    "Segoe UI",
-    system-ui,
-    -apple-system,
-    sans-serif;
+  font-family: var(--font-arabic);
 }
 
 body {
+  min-height: 100vh;
   background-color: var(--bg);
   color: var(--text);
   direction: rtl;
+  font-size: 15px;
+  line-height: 1.75;
+  position: relative;
   transition:
     background-color 0.3s,
     color 0.3s;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(248, 250, 252, 0.86), rgba(248, 250, 252, 0.9)),
+    url("study-bg.jpeg") center / cover no-repeat;
+  background-attachment: fixed;
+}
+
+body.dark::before {
+  background:
+    linear-gradient(rgba(15, 23, 42, 0.84), rgba(15, 23, 42, 0.9)),
+    url("study-bg.jpeg") center / cover no-repeat;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: var(--font-arabic);
+}
+
+h1,
+h2,
+h3,
+h4,
+.section-title,
+.logo {
+  letter-spacing: -0.02em;
+  line-height: 1.45;
 }
 
 .container {
@@ -54,7 +90,8 @@ body {
 .fixed-header {
   position: sticky;
   top: 0;
-  background: var(--card-bg);
+  background: color-mix(in srgb, var(--card-bg) 92%, transparent);
+  backdrop-filter: blur(14px);
   box-shadow: var(--shadow);
   border-bottom: 1px solid var(--border);
   z-index: 1000;

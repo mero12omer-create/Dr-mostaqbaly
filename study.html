@@ -21,7 +21,7 @@
     </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ابدأ مذاكرة - دكتور مستبقي 🩺</title>
+    <title>ابدأ مذاكرة - دكتور مستقبلي 🩺</title>
     <link rel="stylesheet" href="style.css" />
     <style>
       /* ===== تايمر المذاكرة ===== */
@@ -30,7 +30,9 @@
         margin: 0 auto;
       }
       .study-card {
-        background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%);
+        background:
+          linear-gradient(160deg, rgba(15, 23, 42, 0.88), rgba(30, 41, 59, 0.94)),
+          url("study-bg.jpeg") center / cover no-repeat;
         border-radius: 24px;
         padding: 28px 22px;
         box-shadow: 0 18px 40px rgba(15, 23, 42, 0.35);
@@ -247,7 +249,7 @@
     <div id="statusBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; background:#dc2626; color:#fff; padding:14px; font-size:15px; text-align:center; direction:rtl; word-break:break-word;"></div>
     <header class="fixed-header">
       <div class="navbar">
-        <h2 class="logo">دكتور مستبقي 🩺</h2>
+        <h2 class="logo">دكتور مستقبلي 🩺</h2>
         <div class="nav-actions">
           <a href="index.html" class="icon-btn" title="الرئيسية">🏠</a>
           <button class="icon-btn" id="themeToggle" title="تغيير المظهر">🌙</button>
@@ -464,7 +466,12 @@
         studyTickHandle = setInterval(updateTimerUI, 1000);
       }
 
-      function startPauseStudy() {
+      async function startPauseStudy() {
+        const token = localStorage.getItem("studentAuthToken");
+        if (!token) { window.location.href = "login.html"; return; }
+        const button = document.getElementById("startPauseBtn");
+        if (button) button.disabled = true;
+        const wasRunning = studyTimerRunning;
         if (studyTimerRunning) {
           // إيقاف مؤقت
           studyElapsedSeconds = studyCurrentElapsed();
@@ -475,8 +482,25 @@
           studyTimerRunning = true;
           studyTimerStart = Date.now();
         }
-        saveStudyState();
-        updateTimerUI();
+        try {
+          const endpoint = wasRunning ? "/api/study/pause" : "/api/study/start";
+          const body = wasRunning ? {} : { goalMinutes: studyGoalMinutes };
+          const res = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json", "x-student-token": token }, body: JSON.stringify(body) });
+          const data = await res.json();
+          if (!res.ok || !data.success) throw Error(data.message || "تعذر تحديث جلسة المذاكرة");
+          if (Number.isFinite(Number(data.elapsedSeconds))) studyElapsedSeconds = Number(data.elapsedSeconds);
+          if (!wasRunning && data.running) studyTimerStart = Date.now();
+          saveStudyState();
+          updateTimerUI();
+        } catch (error) {
+          studyTimerRunning = wasRunning;
+          if (wasRunning) studyTimerStart = Date.now() - studyElapsedSeconds * 1000;
+          saveStudyState();
+          updateTimerUI();
+          showBanner(error.message || "تعذر تحديث جلسة المذاكرة");
+        } finally {
+          if (button) button.disabled = false;
+        }
       }
 
       async function finishStudy() {
@@ -486,13 +510,14 @@
           showBanner("لسه مذاكرتش دقيقة كاملة، كمّل شوية كمان 💪");
           return;
         }
+        if (!window.confirm(`هتحفظ جلسة مدتها تقريبًا ${minutesLabel(minutes)}؟`)) return;
         const token = localStorage.getItem("studentAuthToken");
         if (!token) { window.location.href = "login.html"; return; }
         try {
           const res = await fetch("/api/study/session", {
             method: "POST",
             headers: { "Content-Type": "application/json", "x-student-token": token },
-            body: JSON.stringify({ minutes, goalMinutes: studyGoalMinutes }),
+            body: JSON.stringify({}),
           });
           const data = await res.json();
           if (!res.ok || !data.success) throw Error(data.message || "تعذر حفظ جلسة المذاكرة");

@@ -93,8 +93,9 @@ const PUBLIC_PAGE_FILES = new Set([
   "admin.html",
   "script.js",
   "subjects.js",
-  "style.css",
-  "image.jpg",
+    "style.css",
+    "study-bg.jpeg",
+    "image.jpg",
   "notes.png",
   "new-design-concept.png",
 ]);
@@ -499,6 +500,14 @@ async function initializeDatabase() {
       goal_minutes INTEGER DEFAULT 0,
       branch TEXT DEFAULT 'عام',
       created_at TIMESTAMP DEFAULT NOW()
+    )`,
+    `CREATE TABLE IF NOT EXISTS active_study_sessions (
+      phone TEXT PRIMARY KEY,
+      goal_minutes INTEGER NOT NULL DEFAULT 0,
+      accumulated_seconds INTEGER NOT NULL DEFAULT 0,
+      started_at TIMESTAMP NULL,
+      status TEXT NOT NULL DEFAULT 'paused',
+      updated_at TIMESTAMP DEFAULT NOW()
     )`,
     `CREATE TABLE IF NOT EXISTS assessments (
       id SERIAL PRIMARY KEY,
@@ -1043,27 +1052,66 @@ app.get("/api/study/leaderboard", (req, res) => {
   );
 });
 
-// حفظ جلسة مذاكرة منتهية (لا تُحوّل إلى نقاط — ترتيب مستقل)
-app.post("/api/study/session", requireStudentAuth, pointsLimiter, (req, res) => {
-  const minutes = Math.round(Number(req.body.minutes));
-  const goalMinutes = Math.round(Number(req.body.goalMinutes)) || 0;
-  if (!Number.isFinite(minutes) || minutes <= 0 || minutes > 24 * 60) {
-    return res.status(400).json({ success: false, message: "مدة المذاكرة غير صالحة" });
+// جلسة المذاكرة النشطة تُقاس من وقت الخادم، ولا نعتمد على دقائق يرسلها المتصفح.
+function getActiveStudyElapsed(row) {
+  const stored = Math.max(0, Number(row?.accumulated_seconds || 0));
+  if (row?.status === "running" && row.started_at) {
+    return stored + Math.max(0, Math.floor((Date.now() - new Date(row.started_at).getTime()) / 1000));
   }
+  return stored;
+}
+
+app.post("/api/study/start", requireStudentAuth, pointsLimiter, (req, res) => {
+  const goalMinutes = Math.min(12 * 60, Math.max(5, Math.round(Number(req.body?.goalMinutes) || 60)));
   db.get(`SELECT name, branch, disabled FROM users WHERE phone = ?`, [req.studentPhone], (userErr, user) => {
-    if (userErr || !user || user.disabled) {
-      return res.status(401).json({ success: false, message: "حساب الطالب غير صالح" });
-    }
-    db.run(
-      `INSERT INTO study_sessions (phone, name, minutes, goal_minutes, branch) VALUES (?, ?, ?, ?, ?)`,
-      [req.studentPhone, user.name || "طالب", minutes, goalMinutes, user.branch || "عام"],
-      function (err) {
-        if (err) {
-          return res.status(500).json({ success: false, message: "تعذر حفظ جلسة المذاكرة" });
-        }
-        res.status(200).json({ success: true, id: this.lastID, minutes, message: "تم تسجيل وقت المذاكرة ✅" });
-      },
-    );
+    if (userErr || !user || user.disabled) return res.status(401).json({ success: false, message: "حساب الطالب غير صالح" });
+    db.get(`SELECT * FROM active_study_sessions WHERE phone = ?`, [req.studentPhone], (err, row) => {
+      if (err) return res.status(500).json({ success: false, message: "تعذر بدء جلسة المذاكرة" });
+      if (row?.status === "running") {
+        return res.json({ success: true, running: true, elapsedSeconds: getActiveStudyElapsed(row), goalMinutes: row.goal_minutes });
+      }
+      if (row) {
+        return db.run(`UPDATE active_study_sessions SET goal_minutes = ?, started_at = NOW(), status = 'running', updated_at = NOW() WHERE phone = ?`, [goalMinutes, req.studentPhone], (updateErr) => {
+          if (updateErr) return res.status(500).json({ success: false, message: "تعذر استكمال جلسة المذاكرة" });
+          res.json({ success: true, running: true, elapsedSeconds: Number(row.accumulated_seconds || 0), goalMinutes });
+        });
+      }
+      db.run(`INSERT INTO active_study_sessions (phone, goal_minutes, accumulated_seconds, started_at, status) VALUES (?, ?, 0, NOW(), 'running')`, [req.studentPhone, goalMinutes], (insertErr) => {
+        if (insertErr) return res.status(500).json({ success: false, message: "تعذر بدء جلسة المذاكرة" });
+        res.json({ success: true, running: true, elapsedSeconds: 0, goalMinutes });
+      });
+    });
+  });
+});
+
+app.post("/api/study/pause", requireStudentAuth, pointsLimiter, (req, res) => {
+  db.get(`SELECT * FROM active_study_sessions WHERE phone = ?`, [req.studentPhone], (err, row) => {
+    if (err || !row) return res.status(404).json({ success: false, message: "لا توجد جلسة مذاكرة نشطة" });
+    const elapsedSeconds = getActiveStudyElapsed(row);
+    db.run(`UPDATE active_study_sessions SET accumulated_seconds = ?, started_at = NULL, status = 'paused', updated_at = NOW() WHERE phone = ?`, [elapsedSeconds, req.studentPhone], (updateErr) => {
+      if (updateErr) return res.status(500).json({ success: false, message: "تعذر إيقاف الجلسة مؤقتًا" });
+      res.json({ success: true, elapsedSeconds });
+    });
+  });
+});
+
+// إنهاء الجلسة: الدقائق المحفوظة محسوبة من وقت الخادم فقط.
+app.post("/api/study/session", requireStudentAuth, pointsLimiter, (req, res) => {
+  db.get(`SELECT * FROM active_study_sessions WHERE phone = ?`, [req.studentPhone], (sessionErr, session) => {
+    if (sessionErr || !session) return res.status(400).json({ success: false, message: "لا توجد جلسة مذاكرة للحفظ" });
+    const seconds = getActiveStudyElapsed(session);
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 1) return res.status(400).json({ success: false, message: "كمّل دقيقة واحدة على الأقل قبل الحفظ" });
+    db.get(`SELECT name, branch, disabled FROM users WHERE phone = ?`, [req.studentPhone], (userErr, user) => {
+      if (userErr || !user || user.disabled) return res.status(401).json({ success: false, message: "حساب الطالب غير صالح" });
+      db.run(`INSERT INTO study_sessions (phone, name, minutes, goal_minutes, branch) VALUES (?, ?, ?, ?, ?)`, [req.studentPhone, user.name || "طالب", minutes, Number(session.goal_minutes || 0), user.branch || "عام"], (insertErr) => {
+        if (insertErr) return res.status(500).json({ success: false, message: "تعذر حفظ جلسة المذاكرة" });
+        db.run(`DELETE FROM active_study_sessions WHERE phone = ?`, [req.studentPhone], (deleteErr) => {
+          if (deleteErr) return res.status(500).json({ success: false, message: "تم حفظ الجلسة لكن تعذر إنهاء حالتها" });
+          res.json({ success: true, minutes, message: "تم تسجيل وقت المذاكرة ✅" });
+        });
+      });
+    });
   });
 });
 
