@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/index.js": {
-      "includeFiles": "*.{html,css,js,jpeg,jpg,png,webp}",
+      "includeFiles": ["*.html", "*.css", "*.js", "study-bg.jpeg", "*.jpg", "*.png", "*.webp"],
       "maxDuration": 120
     }
   },
