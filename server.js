@@ -1087,7 +1087,10 @@ app.post("/api/study/start", requireStudentAuth, pointsLimiter, (req, res) => {
 app.post("/api/study/pause", requireStudentAuth, pointsLimiter, (req, res) => {
   db.get(`SELECT * FROM active_study_sessions WHERE phone = ?`, [req.studentPhone], (err, row) => {
     if (err || !row) return res.status(404).json({ success: false, message: "لا توجد جلسة مذاكرة نشطة" });
-    const elapsedSeconds = getActiveStudyElapsed(row);
+    let elapsedSeconds = getActiveStudyElapsed(row);
+    // العميل يقدر يقلل الوقت فقط (نهاية جولة التركيز)، مش يزوّده.
+    const capSeconds = Number(req.body?.capSeconds);
+    if (Number.isFinite(capSeconds) && capSeconds >= 0) elapsedSeconds = Math.min(elapsedSeconds, Math.floor(capSeconds));
     db.run(`UPDATE active_study_sessions SET accumulated_seconds = ?, started_at = NULL, status = 'paused', updated_at = NOW() WHERE phone = ?`, [elapsedSeconds, req.studentPhone], (updateErr) => {
       if (updateErr) return res.status(500).json({ success: false, message: "تعذر إيقاف الجلسة مؤقتًا" });
       res.json({ success: true, elapsedSeconds });
